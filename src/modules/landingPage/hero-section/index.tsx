@@ -1,11 +1,11 @@
 "use client";
 
-import React from "react";
-import { ArrowUpRight } from "lucide-react";
 import { AppNavbar } from "@/layout/AppNavbar";
+import { AppConnect } from "@/components/AppConnect";
+import Link from "next/link";
+import { heroContent, routes } from "@/constants";
 
 export const HeroSection = () => {
-
   return (
     <section className="relative h-screen w-full overflow-hidden bg-[#050505] font-sans selection:bg-accent selection:text-background text-white">
       {/* 1px Structural Grid Overlay */}
@@ -27,7 +27,7 @@ export const HeroSection = () => {
       />
 
       {/* Main Layout Container */}
-      <div className="relative z-10 h-full w-full flex flex-col p-6 md:p-10 lg:p-12">
+      <div className="relative z-10 h-full w-full flex flex-col px-6 md:px-10 lg:px-16 pt-10 md:pt-12 pb-16 md:pb-20">
 
         {/* Top Navbar Area */}
         <AppNavbar />
@@ -48,22 +48,22 @@ export const HeroSection = () => {
           <div className="flex-1 flex flex-col lg:flex-row mt-12 lg:mt-24">
             {/* Left Sidebar Links */}
             <div className="w-[15%] lg:w-[10%] flex flex-col gap-1 lg:gap-2 mt-4 lg:mt-0">
-              <span className="text-[11px] lg:text-xs font-mono uppercase tracking-[0.4em] font-medium cursor-pointer hover:text-accent transition-colors">PROJECTS</span>
-              <span className="text-[11px] lg:text-xs font-mono uppercase tracking-[0.4em] font-medium cursor-pointer hover:text-accent transition-colors">INFO</span>
+              <Link href={routes.projects} className="text-[11px] lg:text-xs font-mono uppercase tracking-[0.4em] font-medium cursor-pointer hover:text-accent transition-colors">PROJECTS</Link>
+              <Link href={routes.about} className="text-[11px] lg:text-xs font-mono uppercase tracking-[0.4em] font-medium cursor-pointer hover:text-accent transition-colors">INFO</Link>
             </div>
 
             {/* Main Center-Right Content */}
             <div className="flex-1 lg:pl-[15%] mt-16 lg:mt-0">
               <div className="space-y-6 lg:space-y-8 max-w-2xl">
                 <span className="text-[10px] lg:text-[11px] uppercase font-mono tracking-[0.5em] text-muted-foreground block font-medium">
-                  Output
+                  {heroContent.tagline}
                 </span>
                 <div className="space-y-4">
                   <h2 className="text-5xl md:text-6xl lg:text-7xl font-serif leading-[1] tracking-tight font-light">
-                    Visual Developer
+                    {heroContent.headline}
                   </h2>
                   <p className="text-base md:text-lg lg:text-xl font-sans tracking-wide text-white/90 font-light">
-                    Digital products and systems
+                    {heroContent.subline}
                   </p>
                 </div>
               </div>
@@ -73,11 +73,8 @@ export const HeroSection = () => {
 
         {/* Footer Area */}
         <footer className="flex items-end justify-between w-full h-[30vh]">
-          {/* Connect Link */}
-          <div className="flex items-center gap-3 lg:gap-4 cursor-pointer group pb-4 lg:pb-8">
-            <ArrowUpRight size={20} className="text-muted-foreground group-hover:text-accent transition-colors transform translate-y-[2px]" />
-            <span className="text-[11px] lg:text-xs font-mono tracking-[0.4em] uppercase font-medium group-hover:text-accent transition-colors">Connect</span>
-          </div>
+
+          <AppConnect />
 
           {/* Massive Logo */}
           <div className="relative">

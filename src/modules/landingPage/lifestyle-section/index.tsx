@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import Image from "next/image";
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
+import { socialLinks } from "@/constants";
 
 // The photo structure mimicking polaroids
 const PHOTOS = [
@@ -148,8 +149,8 @@ const STICKERS = [
 
 const IG_BADGES = [
   {
-    handle: "@____its__arpit___",
-    url: "https://www.instagram.com/____its__arpit___/",
+    handle: socialLinks.instagram.handle,
+    url: socialLinks.instagram.url,
     offsetX: "-320px",
     offsetY: "360px",
     rotate: "-6deg",
@@ -157,8 +158,8 @@ const IG_BADGES = [
     zIndex: 25,
   },
   {
-    handle: "@____its__arpit___",
-    url: "https://www.instagram.com/____its__arpit___/",
+    handle: socialLinks.instagram.handle,
+    url: socialLinks.instagram.url,
     offsetX: "260px",
     offsetY: "-280px",
     rotate: "8deg",
@@ -191,10 +192,10 @@ export const LifestyleSection = () => {
   }, [mouseX, mouseY]);
 
   return (
-    <section className="relative w-full h-[150vh] md:h-[130vh] bg-[#030303] overflow-hidden flex flex-col border-t border-white/5 group">
+    <section className="relative w-full h-[150vh] md:h-[130vh] bg-[#030303] overflow-hidden flex flex-col border-t border-white/5 group px-6 md:px-10 lg:px-16 py-16 md:py-20">
 
       {/* Header */}
-      <div className="relative z-50 px-6 md:px-16 pt-24 flex flex-col text-center md:text-left">
+      <div className="relative z-50 flex flex-col text-center md:text-left">
         <span className="text-accent text-sm font-mono tracking-widest font-bold uppercase mb-2">
           (LIFESTYLE)
         </span>

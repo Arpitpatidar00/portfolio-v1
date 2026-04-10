@@ -1,7 +1,9 @@
+import { socialLinks } from "@/constants";
+
 const SOCIALS = [
   {
     name: "LinkedIn",
-    href: "#",
+    href: socialLinks.linkedin,
     icon: () => (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 md:w-10 md:h-10">
         <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
@@ -12,7 +14,7 @@ const SOCIALS = [
   },
   {
     name: "X",
-    href: "#",
+    href: socialLinks.twitter,
     icon: () => (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 md:w-10 md:h-10">
         <path d="M4 4l11.733 16h4.267l-11.733 -16z" />
@@ -22,7 +24,7 @@ const SOCIALS = [
   },
   {
     name: "Instagram",
-    href: "#",
+    href: socialLinks.instagram.url,
     icon: () => (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 md:w-10 md:h-10">
         <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
@@ -35,10 +37,10 @@ const SOCIALS = [
 
 export const Footer = () => {
   return (
-    <footer className="relative w-full bg-[#050505] py-20 md:py-32 overflow-hidden font-sans">
+    <footer className="relative w-full bg-[#050505] px-6 md:px-10 lg:px-16 py-16 md:py-20 overflow-hidden font-sans">
 
       {/* 1. Main Content Layout */}
-      <div className="relative z-10 w-full max-w-7xl mx-auto px-12 flex flex-col md:flex-row justify-between items-start md:items-end gap-12">
+      <div className="relative z-10 w-full max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-end gap-12">
 
         {/* Social Pillar */}
         <div className="flex flex-col gap-8">

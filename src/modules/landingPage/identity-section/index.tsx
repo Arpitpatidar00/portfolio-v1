@@ -6,7 +6,7 @@ import { ArrowDown } from "lucide-react";
 
 export const IdentitySection = () => {
   return (
-    <section className="relative h-screen w-full flex items-center justify-center overflow-hidden selection:bg-accent selection:text-background z-10 bg-background">
+    <section className="relative min-h-screen w-full flex items-center justify-center overflow-hidden selection:bg-accent selection:text-background z-10 bg-background px-6 md:px-10 lg:px-16 py-16 md:py-20">
 
       {/* Structural Grid */}
       <div className="absolute inset-0 z-0 opacity-20 pointer-events-none grid-pattern" />
@@ -67,7 +67,7 @@ export const IdentitySection = () => {
           {/* Portrait Image */}
           <div className="absolute inset-0 z-10 w-[140%] h-[120%] -ml-[20%] mt-[5%] pointer-events-none">
             <Image
-              src="/self.jpeg"
+              src="/self.png"
               alt="Portrait"
               fill
               className="object-cover grayscale contrast-[1.15] opacity-90 mix-blend-multiply"
@@ -89,7 +89,7 @@ export const IdentitySection = () => {
       </div>
 
       {/* Bottom Footer Details */}
-      <div className="absolute bottom-8 md:bottom-12 w-full flex justify-between items-end px-8 md:px-16 z-20 font-mono text-muted-foreground uppercase text-xs tracking-widest pointer-events-none">
+      <div className="absolute bottom-12 md:bottom-16 w-full flex justify-between items-end px-6 md:px-10 lg:px-16 z-20 font-mono text-muted-foreground uppercase text-xs tracking-widest pointer-events-none">
 
         {/* Left '01' indicator */}
         <div className="flex items-center justify-center w-10 md:w-12 h-10 md:h-12 rounded-full border border-white/10 pointer-events-auto cursor-pointer hover:bg-white/5 transition-colors shadow-lg">

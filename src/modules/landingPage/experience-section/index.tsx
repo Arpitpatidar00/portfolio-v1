@@ -60,13 +60,13 @@ export const ExperienceSection = () => {
   const circleLabel = `${activeDuration}  ✦  ${activeDuration}  ✦  `;
 
   return (
-    <section className="relative w-full bg-[#050505] py-24 md:py-32 px-4 md:px-12 border-t border-white/5 cursor-auto">
+    <section className="relative w-full bg-[#050505] px-6 md:px-10 lg:px-16 py-16 md:py-20 border-t border-white/5 cursor-auto">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white/[0.01] via-transparent to-transparent pointer-events-none" />
 
       <div className="max-w-7xl mx-auto flex flex-col relative z-10">
 
         {/* Header */}
-        <div className="relative z-20 mb-16 flex flex-col pt-12 text-center md:text-left">
+        <div className="relative z-20 mb-16 flex flex-col text-center md:text-left">
           <span className="text-accent text-sm font-mono tracking-widest font-bold uppercase mb-2">
             (EXPERIENCE)
           </span>

@@ -1,11 +1,15 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Link from "next/link";
+import { navLinks, siteConfig } from "@/constants";
 
 export const AppNavbar = () => {
   const [time, setTime] = useState("");
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const updateTime = () => {
       const now = new Date();
 
@@ -30,17 +34,15 @@ export const AppNavbar = () => {
   return (
     <nav className="flex justify-between items-start w-full text-xs font-mono uppercase tracking-[0.3em] relative z-20">
       <div className="flex gap-6 group cursor-pointer ">
-        <span className="hover:text-accent transition-colors duration-300">HOME</span>
-        <span className="hover:text-accent transition-colors duration-300">ABOUT</span>
-        <span className="hover:text-accent transition-colors duration-300">PROJECTS</span>
-        <span className="hover:text-accent transition-colors duration-300">CONTACT</span>
-
+        {navLinks.map((link) => (
+          <Link key={link.href} href={link.href} className="hover:text-accent transition-colors duration-300 pointer-events-auto">{link.label}</Link>
+        ))}
       </div>
 
       <div className="flex gap-12 items-center">
         <div className="flex flex-col items-end">
           <span className="text-muted-foreground mb-1">Location / Time</span>
-          <span className="text-foreground">India {time}</span>
+          <span className="text-foreground">{siteConfig.location} {mounted ? time : "—"}</span>
         </div>
       </div>
     </nav>

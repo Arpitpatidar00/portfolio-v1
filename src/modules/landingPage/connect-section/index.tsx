@@ -3,23 +3,28 @@
 import React, { useMemo } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { connectSectionContent, routes } from "@/constants";
 
 export const ConnectSection = () => {
   // Generate random stable positions for stars
-  const stars = useMemo(() => {
-    return Array.from({ length: 50 }).map((_, i) => ({
+  const router = useRouter();
+  const [stars, setStars] = React.useState<any[]>([]);
+
+  React.useEffect(() => {
+    setStars(Array.from({ length: 50 }).map((_, i) => ({
       id: i,
       size: Math.random() * 2 + 1,
       x: `${Math.random() * 100}%`,
       y: `${Math.random() * 100}%`,
       duration: Math.random() * 3 + 2,
       delay: Math.random() * 5,
-    }));
+    })));
   }, []);
 
   return (
-    <section className="relative w-full min-h-screen bg-[#050505] flex flex-col items-center justify-center overflow-hidden">
-      
+    <section className="relative w-full bg-[#050505] flex flex-col items-center justify-center overflow-hidden px-6 md:px-10 lg:px-16 py-32 md:py-48">
+
       {/* 1. Star Particle Layer */}
       <div className="absolute inset-0 z-0">
         {stars.map((star) => (
@@ -48,15 +53,15 @@ export const ConnectSection = () => {
 
       {/* 2. Content Matrix */}
       <div className="relative z-10 flex flex-col items-center gap-12 px-6">
-        
+
         {/* Top Tagline */}
-        <motion.span 
+        <motion.span
           initial={{ opacity: 0, y: 10 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
           className="text-white/60 text-lg md:text-2xl font-sans tracking-tight"
         >
-          That's All, Folks! Intrigued?
+          {connectSectionContent.tagline}
         </motion.span>
 
         {/* Massive Pill Button */}
@@ -69,9 +74,10 @@ export const ConnectSection = () => {
           className="relative group px-12 py-8 md:px-32 md:py-16 rounded-[100px] border border-white/20 hover:border-white/50 bg-transparent transition-all duration-500 overflow-hidden"
         >
           <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-[0.03] transition-opacity" />
-          <div className="flex items-center gap-6 md:gap-12 text-white">
-            <span className="text-4xl md:text-8xl font-bold font-heading tracking-tight">
-              Let's Connect
+          <div onClick={() => router.push(routes.contact)} className="flex items-center gap-6 md:gap-12 text-white">
+            <span
+              className="text-4xl md:text-8xl font-bold font-heading tracking-tight">
+              {connectSectionContent.cta}
             </span>
             <ArrowRight className="w-8 h-8 md:w-20 md:h-20 group-hover:translate-x-4 transition-transform duration-500" />
           </div>
@@ -84,31 +90,30 @@ export const ConnectSection = () => {
           transition={{ delay: 0.5, duration: 1 }}
           className="max-w-md text-center text-[10px] md:text-xs text-white uppercase tracking-widest leading-relaxed pointer-events-none"
         >
-          Warning: Getting your designs done from me might result in an overload 
-          of compliments & growth. Please proceed with caution.
+          {connectSectionContent.warning}
         </motion.p>
 
       </div>
 
       {/* 3. Curved Horizon Transition (SVG) */}
       <div className="absolute bottom-0 left-0 w-full overflow-hidden leading-[0] transform translate-y-[1px]">
-        <svg 
-          viewBox="0 0 1200 120" 
-          preserveAspectRatio="none" 
+        <svg
+          viewBox="0 0 1200 120"
+          preserveAspectRatio="none"
           className="relative block w-[calc(100%+1.3px)] h-[120px] md:h-[200px]"
         >
-          <path 
-            d="M0,0 C300,120 900,120 1200,0 L1200,120 L0,120 Z" 
+          <path
+            d="M0,0 C300,120 900,120 1200,0 L1200,120 L0,120 Z"
             fill="#050505"
             className="drop-shadow-[0_-5px_15px_rgba(255,255,255,0.1)]"
           />
           {/* Subtle Glow Edge */}
-          <path 
-            d="M0,0 C300,120 900,120 1200,0" 
-            fill="none" 
-            stroke="white" 
-            strokeWidth="0.5" 
-            strokeOpacity="0.15" 
+          <path
+            d="M0,0 C300,120 900,120 1200,0"
+            fill="none"
+            stroke="white"
+            strokeWidth="0.5"
+            strokeOpacity="0.15"
           />
         </svg>
       </div>

@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
 
 interface Tag {
   text: string;
@@ -84,16 +85,17 @@ const SKILL_CATEGORIES: SkillCategory[] = [
 
 
 export const SkillsSection = () => {
+  const router = useRouter()
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(1); // Match the mockup image by defaulting to Index 1 (GRAPHICS)
 
   return (
-    <section className="relative w-full min-h-screen bg-[#050505] flex flex-col items-center py-32 overflow-hidden border-t border-white/5">
+    <section className="relative w-full bg-[#050505] flex flex-col items-center px-6 md:px-10 lg:px-16 py-16 md:py-20 overflow-hidden border-t border-white/5">
 
       {/* Background Dim Layer */}
       <div className="absolute inset-0 bg-black/40 pointer-events-none" />
 
       {/* Header */}
-      <div className="relative z-20 mb-24 flex flex-col pt-12 text-center md:text-left w-full max-w-7xl mx-auto px-4">
+      <div className="relative z-20 mb-24 flex flex-col text-center md:text-left w-full max-w-7xl mx-auto">
         <span className="text-accent text-sm font-mono tracking-widest font-bold uppercase mb-2">
           (SKILLS)
         </span>
@@ -102,7 +104,7 @@ export const SkillsSection = () => {
         </h2>
       </div>
 
-      <div className="relative w-full max-w-7xl mx-auto flex flex-col items-center gap-10 md:gap-16 px-4 pb-32">
+      <div className="relative w-full max-w-7xl mx-auto flex flex-col items-center gap-10 md:gap-16">
         {SKILL_CATEGORIES.map((skill, idx) => (
           <div
             key={skill.name}
@@ -118,7 +120,7 @@ export const SkillsSection = () => {
               }}
               animate={{
                 opacity: 1,
-                color: hoveredIdx === idx ? "#EAEAEA" : "rgba(255,255,255,0.05)",
+                color: hoveredIdx === idx ? "#EAEAEA" : "rgba(255,255,255,0.15)",
                 scale: hoveredIdx === idx ? 1.05 : 1
               }}
             >
@@ -165,6 +167,7 @@ export const SkillsSection = () => {
         whileInView={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
         className="mt-20 md:mt-32 flex items-center gap-12 pl-10 pr-2 py-2 rounded-full border border-white/20 bg-black/40 backdrop-blur-md group hover:border-accent/50 transition-all duration-300 shadow-[0_0_50px_rgba(0,0,0,0.8)]"
+        onClick={() => router.push("/projects")}
       >
         <span className="text-white/80 font-medium tracking-wide text-sm md:text-base group-hover:text-white transition-colors">
           Explore All Works

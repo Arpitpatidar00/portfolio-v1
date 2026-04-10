@@ -6,22 +6,18 @@ import { ProjectSection } from "./project-section";
 import { ExperienceSection } from "./experience-section";
 import { LifestyleSection } from "./lifestyle-section";
 import { SkillsSection } from "./skills-section";
-import { ConnectSection } from "./connect-section";
-import { Footer } from "./footer";
 
 export const LandingPage = () => {
 
     return (
-        <>
+        <div className="flex flex-col gap-16 md:gap-24 lg:gap-32 bg-background">
             <HeroSection />
             <IdentitySection />
             <WorkSection />
+            <LifestyleSection />
             <ProjectSection />
             <ExperienceSection />
-            <LifestyleSection />
             <SkillsSection />
-            <ConnectSection />
-            <Footer />
-        </>
+        </div>
     );
 };
