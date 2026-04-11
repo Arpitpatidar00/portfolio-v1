@@ -34,14 +34,23 @@ export const ZigZagTimeline = () => {
       const gap = 100 / count;
       let path = `M 50 0`;
 
+      // On mobile, we reduce the horizontal "zig-zag" amplitude for a cleaner look
+      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+      
       for (let i = 0; i < count; i++) {
          const yStart = i * gap;
          const yEnd = yStart + gap;
-         // i=0 is an even index (left-aligned card), so apex curves Left (X=5)
-         // i=1 curves Right (X=95)
-         const ctrlX = i % 2 === 0 ? 5 : 95;
+         
+         // On mobile (narrower container), use 25/75 instead of 5/95
+         const wideX = 95;
+         const narrowX = 5;
+         const mobileWideX = 70;
+         const mobileNarrowX = 30;
 
-         // Cubic bezier for a smooth sweeping wave that rounds out at the edges
+         const ctrlX = i % 2 === 0 
+            ? (isMobile ? mobileNarrowX : narrowX) 
+            : (isMobile ? mobileWideX : wideX);
+
          path += ` C ${ctrlX} ${yStart + gap * 0.25}, ${ctrlX} ${yEnd - gap * 0.25}, 50 ${yEnd}`;
       }
       return path;
@@ -54,7 +63,7 @@ export const ZigZagTimeline = () => {
       <div className="relative w-full pb-32" ref={containerRef}>
 
          {/* Background Curving Dashed Line */}
-         <div className="hidden md:block absolute left-1/2 top-10 transform -translate-x-1/2 w-[70%] lg:w-[60%] h-[92%] pointer-events-none opacity-70 z-0 select-none drop-shadow-sm">
+         <div className="absolute left-1/2 top-10 transform -translate-x-1/2 w-[90%] md:w-[70%] lg:w-[60%] h-[92%] pointer-events-none opacity-40 md:opacity-70 z-0 select-none drop-shadow-sm">
             <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full overflow-visible">
                <path
                   d={dynamicPath}
@@ -75,7 +84,7 @@ export const ZigZagTimeline = () => {
             </svg>
          </div>
 
-         <div className="flex flex-col gap-24 md:gap-8 lg:gap-12 relative z-10 max-w-5xl mx-auto items-center">
+         <div className="flex flex-col gap-12 md:gap-8 lg:gap-12 relative z-10 max-w-5xl mx-auto items-center">
             {PROJECTS.map((proj, idx) => {
                const isEven = idx % 2 === 0;
                return (
@@ -84,7 +93,7 @@ export const ZigZagTimeline = () => {
                      className={`w-full flex ${isEven ? 'justify-start' : 'justify-end'} px-4 md:px-0`}
                      style={{
                         // Creating a vertical overlap so the zig zag looks tightly packed rather than isolated blocks
-                        marginTop: idx > 0 ? "-6%" : "0"
+                        marginTop: idx > 0 ? (typeof window !== 'undefined' && window.innerWidth < 768 ? "-8%" : "-6%") : "0"
                      }}
                      onClick={() => proj.link && window.open(proj.link, "_blank")}
                   >
@@ -146,21 +155,21 @@ export const ZigZagTimeline = () => {
             })}
          </div>
 
-         <div className="mt-32 md:mt-48 text-center relative z-10">
+         <div className="mt-20 md:mt-48 text-center relative z-10">
             <motion.div
-               initial={{ opacity: 0, y: 20 }}
-               whileInView={{ opacity: 1, y: 0 }}
+               initial={{ opacity: 0, scale: 0.9 }}
+               whileInView={{ opacity: 1, scale: 1 }}
                viewport={{ once: true, amount: 0.5 }}
-               className="flex flex-col items-center justify-center"
+               className="flex flex-col items-center justify-center p-8 rounded-[40px] border border-white/5 bg-white/5 backdrop-blur-sm mx-4"
             >
-               <p className="text-xl md:text-2xl font-black font-sans uppercase tracking-[0.2em] text-white">
-                  READY TO BE DELIVERED !
+               <p className="text-lg md:text-2xl font-black font-sans uppercase tracking-[0.2em] text-white/80 group">
+                  READY TO BE <span className="text-accent">DELIVERED</span> !
                </p>
                <motion.div
                   initial={{ width: 0 }}
-                  whileInView={{ width: "200px" }}
+                  whileInView={{ width: "120px" }}
                   transition={{ delay: 0.3, duration: 0.8, ease: "circOut" }}
-                  className="h-1 bg-[#6A5AE0] mt-4 rounded-full"
+                  className="h-1 bg-accent mt-4 rounded-full"
                />
             </motion.div>
          </div>

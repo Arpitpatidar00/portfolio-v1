@@ -3,6 +3,7 @@ import { Syne, EB_Garamond, Outfit, Dancing_Script } from "next/font/google";
 import "./globals.css";
 import { Footer } from "@/modules/landingPage/footer";
 import { ConnectSection } from "@/modules/landingPage/connect-section";
+import { AppLoader } from "@/components/AppLoader";
 
 const syne = Syne({
   variable: "--font-heading",
@@ -41,6 +42,7 @@ export default function RootLayout({
       className={`${syne.variable} ${ebGaramond.variable} ${outfit.variable} ${dancingScript.variable} h-full antialiased dark`}
     >
       <body className="min-h-full flex flex-col">
+        <AppLoader />
         {children}
         <ConnectSection />
         <Footer />

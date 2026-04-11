@@ -158,13 +158,13 @@ export const ResumeSection = () => {
 
           {/* Education */}
           <motion.div className="space-y-10" variants={fadeUp}>
-            <h2 className="text-5xl md:text-6xl font-black font-heading tracking-tighter capitalize drop-shadow-sm">Education</h2>
+            <h2 className="text-4xl sm:text-5xl md:text-6xl font-black font-heading tracking-tighter capitalize drop-shadow-sm">Education</h2>
             <div className="space-y-8">
               {EDUCATION_DATA.map((item, i) => (
                 <div key={i} className="flex flex-col space-y-1">
                   <span className="text-accent text-sm font-bold tracking-wider mb-1">{item.period}</span>
-                  <h3 className="text-xl md:text-2xl font-bold font-sans opacity-90 leading-tight">{item.school}</h3>
-                  <p className="text-muted-foreground text-sm italic font-medium">{item.degree} · {item.details}</p>
+                  <h3 className="text-lg sm:text-xl md:text-2xl font-bold font-sans opacity-90 leading-tight">{item.school}</h3>
+                  <p className="text-muted-foreground text-xs sm:text-sm italic font-medium">{item.degree} · {item.details}</p>
                 </div>
               ))}
             </div>
@@ -172,11 +172,11 @@ export const ResumeSection = () => {
 
           {/* Technical Skills */}
           <motion.div className="space-y-8" variants={fadeUp}>
-            <h2 className="text-5xl md:text-6xl font-black font-heading tracking-tighter capitalize drop-shadow-sm">Software</h2>
+            <h2 className="text-4xl sm:text-5xl md:text-6xl font-black font-heading tracking-tighter capitalize drop-shadow-sm">Software</h2>
             <div className="flex flex-col gap-6">
               {SKILLS_DATA.map((skill, i) => (
                 <div key={i} className="space-y-2">
-                  <h4 className="text-xs text-muted-foreground uppercase font-black tracking-[0.2em]">{skill.category}</h4>
+                  <h4 className="text-[10px] sm:text-xs text-muted-foreground uppercase font-black tracking-[0.2em]">{skill.category}</h4>
                   <motion.div
                     className="flex flex-wrap gap-2 pt-1"
                     variants={fastStagger}
@@ -202,12 +202,12 @@ export const ResumeSection = () => {
 
           {/* Awards */}
           <motion.div className="space-y-8 pb-16 lg:pb-0" variants={fadeUp}>
-            <h2 className="text-5xl md:text-6xl font-black font-heading tracking-tighter capitalize drop-shadow-sm">Awards</h2>
+            <h2 className="text-4xl sm:text-5xl md:text-6xl font-black font-heading tracking-tighter capitalize drop-shadow-sm">Awards</h2>
             <div className="space-y-4">
               {AWARDS_DATA.map((aw, i) => (
                 <motion.div key={i} className="flex gap-4 items-center" variants={fadeUp}>
                   <motion.div variants={popIn} className="w-2 h-2 rounded-full bg-accent shadow-[0_0_8px_rgba(255,94,65,0.8)]" />
-                  <span className="text-lg font-medium opacity-90">{aw}</span>
+                  <span className="text-base sm:text-lg font-medium opacity-90">{aw}</span>
                 </motion.div>
               ))}
             </div>
@@ -226,11 +226,11 @@ export const ResumeSection = () => {
 
           {/* Experience */}
           <motion.div className="space-y-10" variants={fadeUp}>
-            <h2 className="text-5xl md:text-6xl font-black font-heading tracking-tighter capitalize drop-shadow-sm">Experience</h2>
+            <h2 className="text-4xl sm:text-5xl md:text-6xl font-black font-heading tracking-tighter capitalize drop-shadow-sm">Experience</h2>
 
             <div className="relative border-l border-white/10 ml-[11px] md:ml-[15px] space-y-12 pb-4">
               {EXPERIENCE_DATA.map((exp, i) => (
-                <motion.div key={i} className="relative pl-8 md:pl-12 group" variants={fadeUp}>
+                <motion.div key={i} className="relative pl-6 sm:pl-8 md:pl-12 group" variants={fadeUp}>
                   {/* Timeline Node */}
                   <motion.div
                     variants={popIn}
@@ -242,15 +242,15 @@ export const ResumeSection = () => {
                   {/* Content */}
                   <div className="-mt-1.5 md:-mt-2 flex flex-col space-y-3">
                     <div>
-                      <span className="text-accent text-sm font-bold tracking-wider">{exp.period}</span>
-                      <h3 className="text-2xl md:text-3xl font-bold font-sans mt-2 mb-1">{exp.company}</h3>
-                      <p className="text-muted-foreground text-sm md:text-base font-semibold">{exp.role} <span className="opacity-50 mx-2">|</span> {exp.type}</p>
+                      <span className="text-accent text-xs sm:text-sm font-bold tracking-wider">{exp.period}</span>
+                      <h3 className="text-xl sm:text-2xl md:text-3xl font-bold font-sans mt-2 mb-1">{exp.company}</h3>
+                      <p className="text-muted-foreground text-xs sm:text-sm md:text-base font-semibold">{exp.role} <span className="opacity-50 mx-2">|</span> {exp.type}</p>
                     </div>
 
                     {/* Description List */}
                     <ul className="space-y-2 pt-2">
                       {exp.desc.map((d, j) => (
-                        <li key={j} className="text-sm md:text-base text-foreground/70 leading-relaxed flex items-start hover:text-white transition-colors duration-300">
+                        <li key={j} className="text-xs sm:text-sm md:text-base text-foreground/70 leading-relaxed flex items-start hover:text-white transition-colors duration-300">
                           <span className="text-white/20 mr-3 mt-0.5 select-none">›</span>
                           <span>{d}</span>
                         </li>
@@ -264,7 +264,7 @@ export const ResumeSection = () => {
 
           {/* Projects */}
           <motion.div className="space-y-10 pt-4" variants={fadeUp}>
-            <h2 className="text-5xl md:text-6xl font-black font-heading tracking-tighter capitalize drop-shadow-sm">Projects</h2>
+            <h2 className="text-4xl sm:text-5xl md:text-6xl font-black font-heading tracking-tighter capitalize drop-shadow-sm">Projects</h2>
             <motion.div
               className="space-y-12"
               variants={staggerContainer}
@@ -275,16 +275,16 @@ export const ResumeSection = () => {
                   variants={fadeUp}
                   whileHover={{ y: -8, scale: 1.02 }}
                   transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                  className="flex flex-col space-y-3 bg-white/5 p-6 md:p-8 rounded-2xl border border-white/5 hover:border-white/10 hover:bg-white/[0.08] hover:shadow-2xl transition-all group"
+                  className="flex flex-col space-y-3 bg-white/5 p-5 sm:p-6 md:p-8 rounded-2xl border border-white/5 hover:border-white/10 hover:bg-white/[0.08] hover:shadow-2xl transition-all group"
                 >
                   <div className="flex flex-col md:flex-row md:justify-between md:items-baseline gap-2 pb-3 border-b border-white/10">
-                    <h3 className="text-2xl md:text-3xl font-bold font-sans group-hover:text-accent transition-colors">{proj.name}</h3>
-                    <span className="text-white/50 text-sm font-bold tracking-wider">{proj.period}</span>
+                    <h3 className="text-xl sm:text-2xl md:text-3xl font-bold font-sans group-hover:text-accent transition-colors">{proj.name}</h3>
+                    <span className="text-white/50 text-xs sm:text-sm font-bold tracking-wider">{proj.period}</span>
                   </div>
-                  <p className="text-accent text-xs md:text-sm font-mono tracking-widest uppercase py-1">{proj.tech}</p>
+                  <p className="text-accent text-[10px] sm:text-xs md:text-sm font-mono tracking-widest uppercase py-1">{proj.tech}</p>
                   <ul className="space-y-2 pt-2">
                     {proj.desc.map((d, j) => (
-                      <li key={j} className="text-sm md:text-base text-foreground/70 leading-relaxed flex items-start">
+                      <li key={j} className="text-xs sm:text-sm md:text-base text-foreground/70 leading-relaxed flex items-start">
                         <span className="text-white/20 mr-3 mt-0.5 select-none">•</span>
                         <span>{d}</span>
                       </li>

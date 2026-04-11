@@ -23,7 +23,7 @@ export const ConnectSection = () => {
   }, []);
 
   return (
-    <section className="relative w-full bg-[#050505] flex flex-col items-center justify-center overflow-hidden px-6 md:px-10 lg:px-16 py-32 md:py-48">
+    <section className="relative w-full bg-[#050505] flex flex-col items-center justify-center overflow-hidden px-4 sm:px-6 md:px-10 lg:px-16 py-20 sm:py-28 md:py-48">
 
       {/* 1. Star Particle Layer */}
       <div className="absolute inset-0 z-0">
@@ -52,14 +52,14 @@ export const ConnectSection = () => {
       </div>
 
       {/* 2. Content Matrix */}
-      <div className="relative z-10 flex flex-col items-center gap-12 px-6">
+      <div className="relative z-10 flex flex-col items-center gap-8 sm:gap-10 md:gap-12 px-2 sm:px-6">
 
         {/* Top Tagline */}
         <motion.span
           initial={{ opacity: 0, y: 10 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="text-white/60 text-lg md:text-2xl font-sans tracking-tight"
+          className="text-white/60 text-base sm:text-lg md:text-2xl font-sans tracking-tight text-center"
         >
           {connectSectionContent.tagline}
         </motion.span>
@@ -71,15 +71,15 @@ export const ConnectSection = () => {
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           transition={{ type: "spring", damping: 15 }}
-          className="relative group px-12 py-8 md:px-32 md:py-16 rounded-[100px] border border-white/20 hover:border-white/50 bg-transparent transition-all duration-500 overflow-hidden"
+          className="relative group px-8 py-6 sm:px-12 sm:py-8 md:px-32 md:py-16 rounded-[60px] sm:rounded-[80px] md:rounded-[100px] border border-white/20 hover:border-white/50 bg-transparent transition-all duration-500 overflow-hidden"
         >
           <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-[0.03] transition-opacity" />
-          <div onClick={() => router.push(routes.contact)} className="flex items-center gap-6 md:gap-12 text-white">
+          <div onClick={() => router.push(routes.contact)} className="flex items-center gap-4 sm:gap-6 md:gap-12 text-white">
             <span
-              className="text-4xl md:text-8xl font-bold font-heading tracking-tight">
+              className="text-2xl sm:text-4xl md:text-8xl font-bold font-heading tracking-tight">
               {connectSectionContent.cta}
             </span>
-            <ArrowRight className="w-8 h-8 md:w-20 md:h-20 group-hover:translate-x-4 transition-transform duration-500" />
+            <ArrowRight className="w-6 h-6 sm:w-8 sm:h-8 md:w-20 md:h-20 group-hover:translate-x-4 transition-transform duration-500" />
           </div>
         </motion.button>
 
@@ -88,7 +88,7 @@ export const ConnectSection = () => {
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 0.4 }}
           transition={{ delay: 0.5, duration: 1 }}
-          className="max-w-md text-center text-[10px] md:text-xs text-white uppercase tracking-widest leading-relaxed pointer-events-none"
+          className="max-w-xs sm:max-w-sm md:max-w-md text-center text-[9px] sm:text-[10px] md:text-xs text-white uppercase tracking-widest leading-relaxed pointer-events-none"
         >
           {connectSectionContent.warning}
         </motion.p>
@@ -100,7 +100,7 @@ export const ConnectSection = () => {
         <svg
           viewBox="0 0 1200 120"
           preserveAspectRatio="none"
-          className="relative block w-[calc(100%+1.3px)] h-[120px] md:h-[200px]"
+          className="relative block w-[calc(100%+1.3px)] h-[80px] sm:h-[100px] md:h-[200px]"
         >
           <path
             d="M0,0 C300,120 900,120 1200,0 L1200,120 L0,120 Z"

@@ -91,8 +91,8 @@ const TOP_IMAGES = ALL_IMAGES.slice(0, 7);
 const BOT_IMAGES = ALL_IMAGES.slice(7, 13);
 
 const N_TOTAL = 13;
-const SPACING = 340;
-const CARD_SIZE_PX = 280;
+const SPACING = 420;
+const CARD_SIZE_PX = 340;
 
 // Universal Structural Vectors
 const L_TOTAL = N_TOTAL * SPACING;
@@ -145,9 +145,9 @@ const FloatingIcon = ({ src, delay, index, totalItems }: { src: string; delay: n
           x: { duration: 4.5 + Math.random(), repeat: Infinity, ease: "easeInOut" },
           rotate: { duration: 5.5 + Math.random(), repeat: Infinity, ease: "easeInOut" }
         }}
-        className="p-4 bg-white/20 backdrop-blur-2xl rounded-[32px] border border-white/40 shadow-[0_30px_60px_rgba(0,0,0,0.6)] flex items-center justify-center pointer-events-auto cursor-pointer hover:bg-white/30 transition-colors"
+        className="p-3 sm:p-4 bg-white/10 backdrop-blur-2xl rounded-[24px] sm:rounded-[32px] border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex items-center justify-center pointer-events-auto cursor-pointer hover:bg-white/20 transition-colors"
       >
-        <Image src={src} width={80} height={80} alt="Skill" className="w-16 h-16 object-contain filter drop-shadow-2xl" unoptimized />
+        <Image src={src} width={80} height={80} alt="Skill" className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 object-contain filter drop-shadow-2xl brightness-110" unoptimized />
       </motion.div>
     </motion.div>
   );
@@ -183,24 +183,24 @@ const TopCard = ({ index, p, item }: { index: number; p: MotionValue<number>; it
       initial="rest"
       whileHover="hover"
       animate="rest"
-      className="absolute top-1/2 left-1/2 w-[280px] h-[280px] -ml-[140px] -mt-[140px] rounded-[16px] overflow-visible group"
+      className="absolute top-1/2 left-1/2 w-[340px] h-[340px] -ml-[170px] -mt-[170px] rounded-[24px] overflow-visible group"
       style={{ x, y, rotate }}
     >
       <motion.div
-        className="relative w-full h-full border border-white/10 shadow-[0_30px_60px_rgba(0,0,0,0.8)] overflow-hidden pointer-events-auto cursor-pointer"
+        className="relative w-full h-full border border-white/15 shadow-[0_40px_80px_rgba(0,0,0,0.8)] overflow-hidden pointer-events-auto cursor-pointer bg-white/5 backdrop-blur-xl"
         animate={{ y: [0, -12, 0] }}
         transition={{ duration: 4 + (index % 3), repeat: Infinity, ease: "easeInOut", delay: index * 0.15 }}
         style={{
-          borderRadius: "14px",
+          borderRadius: "22px",
         }}
       >
         <Image src={item.image} fill alt={item.title} className="object-cover opacity-60 group-hover:opacity-40 transition-opacity duration-300 p-12" unoptimized />
 
         {/* Content Overlay */}
-        <div className="absolute inset-0 p-6 flex flex-col justify-between z-20">
+        <div className="absolute inset-0 p-4 sm:p-6 flex flex-col justify-between z-20">
           <div className="flex flex-col">
-            <span className="text-[10px] font-mono text-white/40 uppercase tracking-[0.2em] mb-1">Category</span>
-            <h3 className="text-xl font-black text-white uppercase tracking-tight leading-none">{item.title}</h3>
+            <span className="text-[9px] sm:text-[10px] font-mono text-white/40 uppercase tracking-[0.2em] mb-1">Category</span>
+            <h3 className="text-base sm:text-lg md:text-xl font-black text-white uppercase tracking-tight leading-none">{item.title}</h3>
           </div>
         </div>
 
@@ -247,24 +247,24 @@ const BotCard = ({ index, p, item }: { index: number; p: MotionValue<number>; it
       initial="rest"
       whileHover="hover"
       animate="rest"
-      className="absolute top-1/2 left-1/2 w-[280px] h-[280px] -ml-[140px] -mt-[140px] rounded-[16px] overflow-visible group"
+      className="absolute top-1/2 left-1/2 w-[340px] h-[340px] -ml-[170px] -mt-[170px] rounded-[24px] overflow-visible group"
       style={{ x, y, rotate }}
     >
       <motion.div
-        className="relative w-full h-full border border-white/10 shadow-[0_30px_60px_rgba(0,0,0,0.8)] overflow-hidden pointer-events-auto cursor-pointer"
+        className="relative w-full h-full border border-white/15 shadow-[0_40px_80px_rgba(0,0,0,0.8)] overflow-hidden pointer-events-auto cursor-pointer bg-white/5 backdrop-blur-xl"
         animate={{ y: [0, -12, 0] }}
         transition={{ duration: 4 + (index % 2), repeat: Infinity, ease: "easeInOut", delay: index * 0.2 }}
         style={{
-          borderRadius: "14px",
+          borderRadius: "22px",
         }}
       >
         <Image src={item.image} fill alt={item.title} className="object-cover opacity-60 group-hover:opacity-40 transition-opacity duration-300 p-12" unoptimized />
 
         {/* Content Overlay */}
-        <div className="absolute inset-0 p-6 flex flex-col justify-between z-20">
+        <div className="absolute inset-0 p-4 sm:p-6 flex flex-col justify-between z-20">
           <div className="flex flex-col">
-            <span className="text-[10px] font-mono text-white/40 uppercase tracking-[0.2em] mb-1">Category</span>
-            <h3 className="text-xl font-black text-white uppercase tracking-tight leading-none">{item.title}</h3>
+            <span className="text-[9px] sm:text-[10px] font-mono text-white/40 uppercase tracking-[0.2em] mb-1">Category</span>
+            <h3 className="text-base sm:text-lg md:text-xl font-black text-white uppercase tracking-tight leading-none">{item.title}</h3>
           </div>
         </div>
 
@@ -298,21 +298,22 @@ export const ProjectSection = () => {
     offset: ["start start", "end end"],
   });
 
-  const clamShellProgress = useTransform(scrollYProgress, [0.05, 0.45], [0, 1]);
-  const textOpacity = useTransform(scrollYProgress, [0.35, 0.45], [0, 1]);
-  const textScale = useTransform(scrollYProgress, [0.35, 0.45], [0.8, 1]);
-  const globalRotation = useTransform(scrollYProgress, [0.5, 0.95], [0, 90]);
+  const clamShellProgress = useTransform(scrollYProgress, [0.0, 0.4], [0, 1]);
+  const textOpacity = useTransform(scrollYProgress, [0.35, 0.55], [0, 1]);
+  const textScale = useTransform(scrollYProgress, [0.35, 0.55], [0.8, 1]);
+  const globalRotation = useTransform(scrollYProgress, [0.6, 0.95], [0, 90]);
 
   useEffect(() => {
     const handleResize = () => {
       // Calculate padding based on Tailwind standard breakpoints
+      const isMobile = window.innerWidth < 640;
       const isDesktop = window.innerWidth >= 1024;
       const isTablet = window.innerWidth >= 768;
 
-      // Match the classes: px-6 md:px-10 lg:px-16
-      const padX = isDesktop ? 64 * 2 : (isTablet ? 40 * 2 : 24 * 2);
-      // Match the classes: py-16 md:py-20
-      const padY = isTablet ? 80 * 2 : 64 * 2;
+      // Match the classes: px-4 sm:px-6 md:px-10 lg:px-16
+      const padX = isDesktop ? 64 * 2 : (isTablet ? 40 * 2 : (isMobile ? 16 * 2 : 24 * 2));
+      // Match the classes: py-12 sm:py-16 md:py-20
+      const padY = isTablet ? 80 * 2 : (isMobile ? 48 * 2 : 64 * 2);
 
       const exactScaleH = (window.innerHeight - padY) / GEOMETRY_SIZE;
       const exactScaleW = (window.innerWidth - padX) / GEOMETRY_SIZE;
@@ -326,8 +327,8 @@ export const ProjectSection = () => {
   }, []);
 
   return (
-    <section ref={containerRef} className="relative h-[700vh] w-full bg-background z-10 border-t border-white/5">
-      <div className="sticky top-0 h-screen w-full overflow-hidden flex items-center justify-center bg-[#051010] px-6 md:px-10 lg:px-16 py-16 md:py-20">
+    <section ref={containerRef} className="relative h-[200vh] w-full bg-background z-10 border-t border-white/5">
+      <div className="sticky top-0 h-screen w-full overflow-hidden flex items-center justify-center bg-background px-4 sm:px-6 md:px-10 lg:px-16 py-12 sm:py-16 md:py-20">
 
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,var(--tw-gradient-stops))] from-white/[0.04] via-transparent to-transparent" />
         <div className="absolute inset-0 z-0 opacity-20 pointer-events-none grid-pattern" />
@@ -341,14 +342,14 @@ export const ProjectSection = () => {
             className="relative z-10 text-center flex flex-col items-center justify-center font-heading pointer-events-none select-none drop-shadow-2xl"
             style={{ opacity: textOpacity, scale: textScale }}
           >
-            <h2 className="text-4xl md:text-6xl lg:text-[5rem] font-bold uppercase tracking-tight text-[#EAEAEA] leading-[1.05]">
+            <h2 className="text-[10vw] sm:text-[10vw] md:text-5xl lg:text-[6vw] font-bold uppercase tracking-tight text-[#EAEAEA] leading-[1.05]">
               -NOT JUST A<br />
-              <span className="text-transparent bg-clip-text bg-linear-to-b from-[#FF6B00] to-[#FFD000] tracking-tighter block my-2 drop-shadow-[0_0_40px_rgba(255,107,0,0.3)]">
+              <span className="text-transparent bg-clip-text bg-linear-to-b from-[#FF6B00] to-[#FFD000] tracking-tighter block my-1 sm:my-2 drop-shadow-[0_0_40px_rgba(255,107,0,0.3)] accent-glow">
                 DESIGNER
               </span>
               I AM A<br />
               CREATIVE<br />
-              <span className="text-transparent bg-clip-text bg-linear-to-b from-[#FF6B00] to-[#FFD000] tracking-tighter block mt-2 drop-shadow-[0_0_40px_rgba(255,107,0,0.3)]">
+              <span className="text-transparent bg-clip-text bg-linear-to-b from-[#FF6B00] to-[#FFD000] tracking-tighter block mt-1 sm:mt-2 drop-shadow-[0_0_40px_rgba(255,107,0,0.3)] accent-glow">
                 ARTIST.
               </span>
             </h2>

@@ -10,7 +10,7 @@ import { SkillsSection } from "./skills-section";
 export const LandingPage = () => {
 
     return (
-        <div className="flex flex-col gap-16 md:gap-24 lg:gap-32 bg-background">
+        <div className="flex flex-col gap-4 sm:gap-4 md:gap-16 lg:gap-28 bg-background">
             <HeroSection />
             <IdentitySection />
             <WorkSection />

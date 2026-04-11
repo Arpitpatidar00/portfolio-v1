@@ -33,31 +33,31 @@ export const AppConnect = () => {
 
    return (
       <div
-         className="relative pb-4 lg:pb-8 flex items-end h-[240px] w-[240px]"
+         className="relative pb-2 sm:pb-4 lg:pb-8 flex items-end h-[200px] sm:h-[220px] md:h-[240px] w-[200px] sm:w-[220px] md:w-[240px]"
          onMouseEnter={() => setIsConnectHovered(true)}
          onMouseLeave={() => setIsConnectHovered(false)}
       >
          <motion.div
             className="relative overflow-hidden flex items-center justify-center origin-bottom-left cursor-default"
             animate={{
-               width: isConnectHovered ? 220 : 120,
-               height: isConnectHovered ? 220 : 40,
-               borderRadius: isConnectHovered ? 110 : 20,
-               y: isConnectHovered ? -50 : 0,
-               x: isConnectHovered ? 20 : 0
+               width: isConnectHovered ? 200 : 110,
+               height: isConnectHovered ? 200 : 36,
+               borderRadius: isConnectHovered ? 100 : 18,
+               y: isConnectHovered ? -40 : 0,
+               x: isConnectHovered ? 16 : 0
             }}
             transition={{ type: "spring", stiffness: 400, damping: 25 }}
          >
             {/* Active State: Text always stays visible */}
             <motion.div
-               className="flex items-center gap-2 absolute z-20 pointer-events-none"
+               className="flex items-center gap-1.5 sm:gap-2 absolute z-20 pointer-events-none"
                animate={{
                   scale: isConnectHovered ? 1.05 : 1
                }}
                transition={{ duration: 0.3 }}
             >
-               <ArrowUpRight size={18} className={isConnectHovered ? "text-accent transition-colors" : "text-muted-foreground transition-colors"} />
-               <span className={`text-[11px] lg:text-xs font-mono tracking-[0.4em] uppercase font-bold transition-colors ${isConnectHovered ? "text-white" : "text-muted-foreground"}`}>Connect</span>
+               <ArrowUpRight size={16} className={isConnectHovered ? "text-accent transition-colors" : "text-muted-foreground transition-colors"} />
+               <span className={`text-[10px] sm:text-[11px] lg:text-xs font-mono tracking-[0.3em] sm:tracking-[0.4em] uppercase font-bold transition-colors ${isConnectHovered ? "text-white" : "text-muted-foreground"}`}>Connect</span>
             </motion.div>
 
             {/* Expanded State: 5 Icons in orbit */}
@@ -73,37 +73,37 @@ export const AppConnect = () => {
                style={{ pointerEvents: isConnectHovered ? 'auto' : 'none' }}
             >
                {/* Center Top */}
-               <div className="absolute top-[20px] left-1/2 -translate-x-1/2">
-                  <Link href={socialLinks.twitter} target="_blank" className="flex items-center justify-center bg-white/10 hover:bg-accent rounded-full text-white hover:text-black transition-all duration-300 w-[38px] h-[38px]">
-                     <XIcon size={16} />
+               <div className="absolute top-[16px] sm:top-[20px] left-1/2 -translate-x-1/2">
+                  <Link href={socialLinks.twitter} target="_blank" className="flex items-center justify-center bg-white/10 hover:bg-accent rounded-full text-white hover:text-black transition-all duration-300 w-[34px] h-[34px] sm:w-[38px] sm:h-[38px]">
+                     <XIcon size={14} />
                   </Link>
                </div>
 
                {/* Left Mid-Top */}
-               <div className="absolute top-[55px] left-[20px]">
-                  <Link href={socialLinks.github} target="_blank" className="flex items-center justify-center bg-white/10 hover:bg-accent rounded-full text-white hover:text-black transition-all duration-300 w-[38px] h-[38px]">
-                     <GithubIcon size={16} />
+               <div className="absolute top-[48px] sm:top-[55px] left-[16px] sm:left-[20px]">
+                  <Link href={socialLinks.github} target="_blank" className="flex items-center justify-center bg-white/10 hover:bg-accent rounded-full text-white hover:text-black transition-all duration-300 w-[34px] h-[34px] sm:w-[38px] sm:h-[38px]">
+                     <GithubIcon size={14} />
                   </Link>
                </div>
 
                {/* Right Mid-Top */}
-               <div className="absolute top-[55px] right-[20px]">
-                  <Link href={socialLinks.linkedin} target="_blank" className="flex items-center justify-center bg-white/10 hover:bg-accent rounded-full text-white hover:text-black transition-all duration-300 w-[38px] h-[38px]">
-                     <LinkedinIcon size={16} />
+               <div className="absolute top-[48px] sm:top-[55px] right-[16px] sm:right-[20px]">
+                  <Link href={socialLinks.linkedin} target="_blank" className="flex items-center justify-center bg-white/10 hover:bg-accent rounded-full text-white hover:text-black transition-all duration-300 w-[34px] h-[34px] sm:w-[38px] sm:h-[38px]">
+                     <LinkedinIcon size={14} />
                   </Link>
                </div>
 
                {/* Bottom Left */}
-               <div className="absolute bottom-[40px] left-[35px]">
-                  <Link href={routes.projects} className="flex items-center justify-center bg-white/10 hover:bg-accent rounded-full text-white hover:text-black transition-all duration-300 w-[38px] h-[38px]">
-                     <FolderOpen size={16} />
+               <div className="absolute bottom-[32px] sm:bottom-[40px] left-[28px] sm:left-[35px]">
+                  <Link href={routes.projects} className="flex items-center justify-center bg-white/10 hover:bg-accent rounded-full text-white hover:text-black transition-all duration-300 w-[34px] h-[34px] sm:w-[38px] sm:h-[38px]">
+                     <FolderOpen size={14} />
                   </Link>
                </div>
 
                {/* Bottom Right */}
-               <div className="absolute bottom-[40px] right-[35px]">
-                  <Link href={routes.contact} className="flex items-center justify-center bg-white/10 hover:bg-accent rounded-full text-white hover:text-black transition-all duration-300 w-[38px] h-[38px]">
-                     <Mail size={16} />
+               <div className="absolute bottom-[32px] sm:bottom-[40px] right-[28px] sm:right-[35px]">
+                  <Link href={routes.contact} className="flex items-center justify-center bg-white/10 hover:bg-accent rounded-full text-white hover:text-black transition-all duration-300 w-[34px] h-[34px] sm:w-[38px] sm:h-[38px]">
+                     <Mail size={14} />
                   </Link>
                </div>
             </motion.div>

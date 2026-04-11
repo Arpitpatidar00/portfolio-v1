@@ -53,13 +53,13 @@ const SOCIALS = [
 const MASK_TR = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 104' width='220' height='104' fill='black'%3E%3Cpath d='M0 0 L6 0 C22 0 38 10 38 24 C38 56 54 80 97 80 L192 80 C206 80 220 90 220 104 L220 110 L0 110 Z'/%3E%3C/svg%3E")`;
 const MASK_BL = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 110 220' width='110' height='220' fill='black'%3E%3Cpath d='M0 0 L0 6 C0 22 10 38 24 38 C56 38 80 54 80 97 L80 192 C80 206 90 220 104 220 L110 220 L110 0 Z'/%3E%3C/svg%3E")`;
 
-const COMBINED_MASK = `
-  ${MASK_TR} top right / 220px 104px no-repeat,
-  ${MASK_BL} bottom left / 110px 220px no-repeat,
-  linear-gradient(black, black) top left / calc(100% - 220px) 104px no-repeat,
-  linear-gradient(black, black) left 0 top 104px / 100% calc(100% - 324px) no-repeat,
-  linear-gradient(black, black) bottom right / calc(100% - 110px) 220px no-repeat
-`.replace(/\s+/g, " ").trim();
+const COMBINED_MASK = [
+  `${MASK_TR} top right / 220px 104px no-repeat`,
+  `${MASK_BL} bottom left / 110px 220px no-repeat`,
+  `linear-gradient(to bottom, black, black) top left / calc(100% - 220px) 104px no-repeat`,
+  `linear-gradient(to bottom, black, black) left 0 top 104px / 100% calc(100% - 324px) no-repeat`,
+  `linear-gradient(to bottom, black, black) bottom right / calc(100% - 110px) 220px no-repeat`
+].join(", ");
 
 const easeOutQuint = [0.22, 1, 0.36, 1] as const;
 
@@ -103,7 +103,7 @@ const imageReveal = {
 
 export const HeroSection = () => {
   return (
-    <section className="px-6 md:px-10 lg:px-16 pb-12 flex flex-col lg:flex-row gap-12 lg:gap-24 items-center min-h-[85vh] overflow-hidden ">
+    <section className="px-6 md:px-10 lg:px-16 pb-12 flex flex-col lg:flex-row gap-12 lg:gap-24 items-center min-h-[85vh] ">
       {/* Left Column: Typography & Info */}
       <motion.div
         className="flex-1 flex flex-col justify-center space-y-8 md:space-y-12"
@@ -111,11 +111,11 @@ export const HeroSection = () => {
         initial="hidden"
         animate="visible"
       >
-        <motion.div className="space-y-2" variants={fadeUp}>
-          <h1 className="text-[10vw] lg:text-[6vw] font-black leading-[0.85] tracking-tighter !lowercase font-heading mt-6 md:mt-0">
+        <motion.div className="space-y-4" variants={fadeUp}>
+          <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-[6vw] font-black leading-[0.85] tracking-tighter !lowercase font-heading mt-6 md:mt-0">
             visual<br />Developer
           </h1>
-          <p className="max-w-md text-sm md:text-base text-muted-foreground leading-relaxed font-medium pt-4 lg:pl-[20%]">
+          <p className="max-w-md text-sm md:text-base text-muted-foreground leading-relaxed font-medium pt-4 md:pl-10 lg:pl-[20%]">
             I am a visual developer with a passion for creating beautiful and interactive web experiences. I specialize in front-end development and use modern technologies to bring my ideas to life.
           </p>
         </motion.div>
@@ -141,13 +141,13 @@ export const HeroSection = () => {
         {/* Stats Section */}
         <motion.div className="grid grid-cols-2 gap-8 pt-8" variants={staggerContainer}>
           <motion.div className="space-y-2" variants={fadeUp}>
-            <span className="text-4xl md:text-6xl font-black font-heading tracking-tighter">+15</span>
+            <span className="text-4xl sm:text-5xl md:text-6xl font-black font-heading tracking-tighter">+15</span>
             <p className="text-[10px] md:text-xs text-muted-foreground uppercase font-bold tracking-widest leading-relaxed">
               Working on Live<br />Projects
             </p>
           </motion.div>
           <motion.div className="space-y-2" variants={fadeUp}>
-            <span className="text-4xl md:text-6xl font-black font-heading tracking-tighter">2+</span>
+            <span className="text-4xl sm:text-5xl md:text-6xl font-black font-heading tracking-tighter">2+</span>
             <p className="text-[10px] md:text-xs text-muted-foreground uppercase font-bold tracking-widest leading-relaxed">
               Years of<br />Experience building imaginations into reality
             </p>
@@ -157,7 +157,7 @@ export const HeroSection = () => {
 
       {/* Right Column: Key Image with "Notched" UI */}
       <motion.div
-        className="flex-1 relative w-full h-[60vh] lg:h-[80vh] flex items-center justify-center"
+        className="relative w-full lg:flex-1 h-[40vh] sm:h-[50vh] md:h-[60vh] lg:h-[80vh] min-h-[400px] flex items-center justify-center"
         variants={imageReveal}
         initial="hidden"
         animate="visible"
@@ -186,24 +186,24 @@ export const HeroSection = () => {
 
           {/* Top Right Globe (matches image) */}
           <motion.div
-            className="absolute top-2 -right-2 md:-right-4 w-14 h-14 md:w-16 md:h-16 bg-foreground rounded-full flex items-center justify-center z-30 shadow-2xl border-4 border-background"
+            className="absolute top-2 -right-2 md:-right-4 w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 bg-foreground rounded-full flex items-center justify-center z-30 shadow-2xl border-4 border-background"
             initial={{ rotate: -90, scale: 0 }}
             animate={{ rotate: 0, scale: 1 }}
             transition={{ type: "spring", delay: 0.8, stiffness: 200 }}
             whileHover={{ rotate: 180, scale: 1.1 }}
           >
-            <Globe className="text-background w-6 h-6 md:w-8 md:h-8" />
+            <Globe className="text-background w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8" />
           </motion.div>
 
           {/* Signature (top-left, exactly as in your image) */}
           <motion.div
-            className="absolute top-8 left-8 z-30 pointer-events-none"
+            className="absolute top-6 left-6 sm:top-8 sm:left-8 z-30 pointer-events-none"
             initial={{ opacity: 0, x: -20, rotate: -10 }}
             animate={{ opacity: 1, x: 0, rotate: 0 }}
             transition={{ delay: 1, duration: 0.8, ease: "easeOut" }}
           >
             <span
-              className="text-white text-5xl md:text-6xl tracking-[-2px] font-light drop-shadow-md"
+              className="text-white text-4xl sm:text-5xl md:text-6xl tracking-[-2px] font-light drop-shadow-md"
               style={{ fontFamily: "Brush Script MT, cursive" }}
             >
               Arpit
