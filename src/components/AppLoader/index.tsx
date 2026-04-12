@@ -36,6 +36,13 @@ export const AppLoader = () => {
     }
   }, [index]);
 
+  // Dispatch event when loader finishes so music can start
+  useEffect(() => {
+    if (!loading) {
+      window.dispatchEvent(new CustomEvent("app-loader-complete"));
+    }
+  }, [loading]);
+
   const handleSkip = () => {
     setLoading(false);
   };

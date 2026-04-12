@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { navLinks, siteConfig } from "@/constants";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Download } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export const AppNavbar = () => {
@@ -43,10 +43,18 @@ export const AppNavbar = () => {
     <>
       {/* ─── Desktop Navbar ─── */}
       <nav className="hidden md:flex justify-between items-start w-full text-xs font-mono uppercase tracking-[0.3em] relative z-20">
-        <div className="flex gap-6 group cursor-pointer">
+        <div className="flex gap-6 group cursor-pointer items-center">
           {navLinks.map((link) => (
             <Link key={link.href} href={link.href} className="hover:text-accent transition-colors duration-300 pointer-events-auto">{link.label}</Link>
           ))}
+          <a
+            href="/resume/resume.pdf"
+            download
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-accent/30 bg-accent/5 hover:bg-accent/15 hover:border-accent/60 text-accent transition-all duration-300 pointer-events-auto"
+          >
+            <Download size={10} strokeWidth={2.5} />
+            <span>Resume</span>
+          </a>
         </div>
         <div className="flex gap-12 items-center">
           <div className="flex flex-col items-end">
@@ -113,6 +121,21 @@ export const AppNavbar = () => {
                   </Link>
                 </motion.div>
               ))}
+              <motion.div
+                initial={{ opacity: 0, x: -30 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: navLinks.length * 0.08, duration: 0.4 }}
+              >
+                <a
+                  href="/resume/resume.pdf"
+                  download
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-3 text-4xl font-heading font-black uppercase tracking-tight text-accent hover:text-white transition-colors duration-300"
+                >
+                  <Download size={28} strokeWidth={2.5} />
+                  Resume
+                </a>
+              </motion.div>
             </div>
 
             {/* Bottom Info */}
