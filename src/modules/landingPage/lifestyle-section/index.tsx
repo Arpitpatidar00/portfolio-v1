@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
+import { motion, MotionValue, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { socialLinks } from "@/constants";
 
 // The photo structure mimicking polaroids
@@ -404,7 +404,7 @@ export const LifestyleSection = () => {
 
           {/* 2. RENDER IG BADGES */}
           {IG_BADGES.map((badge, i) => (
-             <BadgeItem key={`badge-${i}`} badge={badge} smoothX={smoothX} smoothY={smoothY} isMobile={isMobile} />
+            <BadgeItem key={`badge-${i}`} badge={badge} smoothX={smoothX} smoothY={smoothY} isMobile={isMobile} />
           ))}
 
           {/* RENDER STICKERS */}
