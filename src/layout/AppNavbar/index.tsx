@@ -12,7 +12,8 @@ export const AppNavbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
+    // Avoid synchronous state update in effect to prevent cascading renders
+    const timer = setTimeout(() => setMounted(true), 0);
     const updateTime = () => {
       const now = new Date();
       const indiaTime = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + (330 * 60000));

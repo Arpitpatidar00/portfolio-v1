@@ -109,10 +109,31 @@ const GEOMETRY_SIZE = (2 * R_FINAL) + CARD_SIZE_PX;
 const FloatingIcon = ({ src, delay, index, totalItems }: { src: string; delay: number; index: number; totalItems: number }) => {
   // Calculate a varied position, reaching OUTSIDE the 280x280 card.
   // We use totalItems to evenly distribute them around the circle so they NEVER overlap, even with 4+ items.
-  const angle = (index * (360 / totalItems) + (Math.random() * 20 - 10)) * (Math.PI / 180);
-  const radius = 180 + Math.random() * 40;
-  const baseX = Math.cos(angle) * radius;
-  const baseY = Math.sin(angle) * radius;
+  const { baseX, baseY, durations } = React.useMemo(() => {
+    // Stable pseudo-random based on index
+    const pseudoRandom = (seed: number) => {
+      const x = Math.sin(seed++) * 10000;
+      return x - Math.floor(x);
+    };
+
+    const rnd1 = pseudoRandom(index + 100);
+    const rnd2 = pseudoRandom(index + 200);
+    const rnd3 = pseudoRandom(index + 300);
+    const rnd4 = pseudoRandom(index + 400);
+    const rnd5 = pseudoRandom(index + 500);
+
+    const angle = (index * (360 / totalItems) + (rnd1 * 20 - 10)) * (Math.PI / 180);
+    const radius = 180 + rnd2 * 40;
+    return {
+      baseX: Math.cos(angle) * radius,
+      baseY: Math.sin(angle) * radius,
+      durations: {
+        y: 3.5 + rnd3,
+        x: 4.5 + rnd4,
+        rotate: 5.5 + rnd5
+      }
+    };
+  }, [index, totalItems]);
 
   return (
     <motion.div
@@ -141,9 +162,9 @@ const FloatingIcon = ({ src, delay, index, totalItems }: { src: string; delay: n
           rotate: [-15, 15, -15]
         }}
         transition={{
-          y: { duration: 3.5 + Math.random(), repeat: Infinity, ease: "easeInOut" },
-          x: { duration: 4.5 + Math.random(), repeat: Infinity, ease: "easeInOut" },
-          rotate: { duration: 5.5 + Math.random(), repeat: Infinity, ease: "easeInOut" }
+          y: { duration: durations.y, repeat: Infinity, ease: "easeInOut" },
+          x: { duration: durations.x, repeat: Infinity, ease: "easeInOut" },
+          rotate: { duration: durations.rotate, repeat: Infinity, ease: "easeInOut" }
         }}
         className="p-3 sm:p-4 bg-white/10 backdrop-blur-2xl rounded-[24px] sm:rounded-[32px] border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex items-center justify-center pointer-events-auto cursor-pointer hover:bg-white/20 transition-colors"
       >
