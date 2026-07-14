@@ -336,14 +336,14 @@ export const ContactPage = () => {
               className="space-y-8"
             >
               <h2 className="text-5xl md:text-7xl lg:text-[5.5rem] font-heading font-black leading-[0.9] text-accent">
-                LET'S CREATE<br />
+                LET&apos;S CREATE<br />
                 THE IMPOSSIBLE —<br />
                 TOGETHER
               </h2>
 
               <div className="max-w-md space-y-6">
                 <p className="text-[11px] font-mono uppercase tracking-[0.2em] leading-relaxed text-white/50">
-                  LEGENDARIUM IS MORE THAN A MAGAZINE — IT'S A NEXUS FOR VISIONARIES, DISRUPTORS, AND PHENOMENA-IN-THE-MAKING. WHETHER YOU'RE READY TO BE FEATURED, CONTRIBUTE YOUR GENIUS, OR EXPLORE PARTNERSHIP OPPORTUNITIES, THIS IS WHERE THE CONVERSATION BEGINS.
+                  LEGENDARIUM IS MORE THAN A MAGAZINE — IT&apos;S A NEXUS FOR VISIONARIES, DISRUPTORS, AND PHENOMENA-IN-THE-MAKING. WHETHER YOU&apos;RE READY TO BE FEATURED, CONTRIBUTE YOUR GENIUS, OR EXPLORE PARTNERSHIP OPPORTUNITIES, THIS IS WHERE THE CONVERSATION BEGINS.
                 </p>
               </div>
             </motion.div>

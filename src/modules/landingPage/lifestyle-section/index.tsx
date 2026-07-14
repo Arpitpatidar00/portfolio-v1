@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
+import { motion, MotionValue, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { socialLinks } from "@/constants";
 
 // The photo structure mimicking polaroids
@@ -207,6 +207,148 @@ const IG_BADGES = [
   }
 ];
 
+const PolaroidItem = ({ data, smoothX, smoothY, isMobile }: { data: typeof PHOTOS[0], smoothX: MotionValue<number>, smoothY: MotionValue<number>, isMobile: boolean }) => {
+  const parallaxX = useTransform(smoothX, (v: number) => (v * 0.05 * data.depth));
+  const parallaxY = useTransform(smoothY, (v: number) => (v * 0.05 * data.depth));
+  const oX = isMobile ? data.mobileOffsetX : data.offsetX;
+  const oY = isMobile ? data.mobileOffsetY : data.offsetY;
+
+  return (
+    <div
+      className="absolute pointer-events-none drop-shadow-2xl"
+      style={{
+        left: oX,
+        top: oY,
+        zIndex: data.zIndex,
+        transform: 'translate(-50%, -50%)'
+      }}
+    >
+      <motion.div
+        className="w-[220px] h-[260px] sm:w-[260px] sm:h-[300px] md:w-[320px] md:h-[380px] rounded-[12px] sm:rounded-[16px] bg-[#121212] p-2 sm:p-3 shadow-[0_20px_50px_rgba(0,0,0,0.8)] border border-white/5 flex flex-col"
+        style={{
+          rotate: data.rotate,
+          x: parallaxX,
+          y: parallaxY
+        }}
+      >
+        <div className="relative w-full flex-grow rounded-[6px] sm:rounded-[8px] overflow-hidden bg-black/50">
+          <Image src={data.src} fill alt="Lifestyle" className="object-cover opacity-90 transition-transform duration-700 ease-out hover:scale-110 pointer-events-auto" unoptimized />
+        </div>
+        {data.title && (
+          <div className="w-full text-center mt-2 sm:mt-3 mb-1 sm:mb-2 text-white/50 opacity-80 text-sm sm:text-base md:text-lg lg:text-xl font-medium tracking-wide" style={{ fontFamily: 'var(--font-heading)' }}>
+            {data.title}
+          </div>
+        )}
+      </motion.div>
+    </div>
+  );
+};
+
+const BadgeItem = ({ badge, smoothX, smoothY, isMobile }: { badge: typeof IG_BADGES[0], smoothX: MotionValue<number>, smoothY: MotionValue<number>, isMobile: boolean }) => {
+  const parallaxX = useTransform(smoothX, (v: number) => (v * 0.08 * badge.depth));
+  const parallaxY = useTransform(smoothY, (v: number) => (v * 0.08 * badge.depth));
+  const oX = isMobile ? badge.mobileOffsetX : badge.offsetX;
+  const oY = isMobile ? badge.mobileOffsetY : badge.offsetY;
+
+  return (
+    <div
+      className="absolute pointer-events-none transition-transform hover:scale-105"
+      style={{
+        left: oX,
+        top: oY,
+        zIndex: badge.zIndex,
+        transform: 'translate(-50%, -50%)'
+      }}
+    >
+      <motion.div
+        onClick={() => window.open(badge.url, '_blank')}
+        className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 md:px-5 py-2 sm:py-3 rounded-full bg-gradient-to-r from-orange-500 via-pink-500 to-purple-600 shadow-2xl pointer-events-auto cursor-pointer"
+        style={{
+          rotate: badge.rotate,
+          x: parallaxX,
+          y: parallaxY
+        }}
+      >
+        <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+          <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+          <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+        </svg>
+        <span className="text-white font-bold tracking-widest text-[10px] sm:text-xs md:text-sm uppercase">
+          {badge.handle}
+        </span>
+      </motion.div>
+    </div>
+  );
+};
+
+const StickerItem = ({ stick, smoothX, smoothY, isMobile }: { stick: typeof STICKERS[0], smoothX: MotionValue<number>, smoothY: MotionValue<number>, isMobile: boolean }) => {
+  const parallaxX = useTransform(smoothX, (v: number) => (v * 0.12 * stick.depth));
+  const parallaxY = useTransform(smoothY, (v: number) => (v * 0.12 * stick.depth));
+  const oX = isMobile ? stick.mobileOffsetX : stick.offsetX;
+  const oY = isMobile ? stick.mobileOffsetY : stick.offsetY;
+  const w = isMobile ? stick.mobileWidth : stick.width;
+
+  if (stick.width === 0) return null;
+
+  return (
+    <div
+      className="absolute pointer-events-none drop-shadow-2xl"
+      style={{
+        left: oX,
+        top: oY,
+        zIndex: stick.zIndex,
+        transform: 'translate(-50%, -50%)',
+        width: w
+      }}
+    >
+      <motion.div
+        className="relative"
+        style={{
+          rotate: stick.rotate,
+          x: parallaxX,
+          y: parallaxY
+        }}
+      >
+        <Image src={stick.src} width={w} height={w} className="w-full h-auto object-contain" alt="Sticker" unoptimized />
+      </motion.div>
+    </div>
+  );
+};
+
+const CentralBadge = ({ smoothX, smoothY }: { smoothX: MotionValue<number>, smoothY: MotionValue<number> }) => {
+  const parallaxX = useTransform(smoothX, (v: number) => v * 0.03);
+  const parallaxY = useTransform(smoothY, (v: number) => v * 0.03);
+
+  return (
+    <div
+      className="absolute z-50 pointer-events-none"
+      style={{
+        left: '0px',
+        top: '0px',
+        transform: 'translate(-50%, -50%)',
+      }}
+    >
+      <motion.div
+        className="flex flex-col items-center drop-shadow-[0_0_80px_rgba(0,0,0,1)]"
+        style={{
+          x: parallaxX,
+          y: parallaxY,
+        }}
+      >
+        <div className="relative w-[280px] h-[100px] sm:w-[340px] sm:h-[120px] md:w-[500px] md:h-[180px] lg:w-[600px] lg:h-[220px]">
+          <Image
+            src="/Stickers/text.avif"
+            fill
+            alt="This is where my mind wanders around"
+            className="object-contain drop-shadow-2xl"
+            unoptimized
+          />
+        </div>
+      </motion.div>
+    </div>
+  );
+};
 
 export const LifestyleSection = () => {
   const [isMobile, setIsMobile] = useState(false);
@@ -256,146 +398,22 @@ export const LifestyleSection = () => {
         <div className="relative w-0 h-0 flex items-center justify-center" style={{ transform: isMobile ? 'scale(0.65)' : 'scale(1)' }}>
 
           {/* 1. RENDER POLAROIDS */}
-          {PHOTOS.map((data) => {
-            const parallaxX = useTransform(smoothX, (v) => (v * 0.05 * data.depth));
-            const parallaxY = useTransform(smoothY, (v) => (v * 0.05 * data.depth));
-            const oX = isMobile ? data.mobileOffsetX : data.offsetX;
-            const oY = isMobile ? data.mobileOffsetY : data.offsetY;
-
-            return (
-              <div
-                key={`photo-${data.id}`}
-                className="absolute pointer-events-none drop-shadow-2xl"
-                style={{
-                  left: oX,
-                  top: oY,
-                  zIndex: data.zIndex,
-                  transform: 'translate(-50%, -50%)'
-                }}
-              >
-                <motion.div
-                  className="w-[220px] h-[260px] sm:w-[260px] sm:h-[300px] md:w-[320px] md:h-[380px] rounded-[12px] sm:rounded-[16px] bg-[#121212] p-2 sm:p-3 shadow-[0_20px_50px_rgba(0,0,0,0.8)] border border-white/5 flex flex-col"
-                  style={{
-                    rotate: data.rotate,
-                    x: parallaxX,
-                    y: parallaxY
-                  }}
-                >
-                  <div className="relative w-full flex-grow rounded-[6px] sm:rounded-[8px] overflow-hidden bg-black/50">
-                    <Image src={data.src} fill alt="Lifestyle" className="object-cover opacity-90 transition-transform duration-700 ease-out hover:scale-110 pointer-events-auto" unoptimized />
-                  </div>
-                  {data.title && (
-                    <div className="w-full text-center mt-2 sm:mt-3 mb-1 sm:mb-2 text-white/50 opacity-80 text-sm sm:text-base md:text-lg lg:text-xl font-medium tracking-wide" style={{ fontFamily: 'var(--font-heading)' }}>
-                      {data.title}
-                    </div>
-                  )}
-                </motion.div>
-              </div>
-            );
-          })}
+          {PHOTOS.map((data) => (
+            <PolaroidItem key={`photo-${data.id}`} data={data} smoothX={smoothX} smoothY={smoothY} isMobile={isMobile} />
+          ))}
 
           {/* 2. RENDER IG BADGES */}
-          {IG_BADGES.map((badge, i) => {
-            const parallaxX = useTransform(smoothX, (v) => (v * 0.08 * badge.depth));
-            const parallaxY = useTransform(smoothY, (v) => (v * 0.08 * badge.depth));
-            const oX = isMobile ? badge.mobileOffsetX : badge.offsetX;
-            const oY = isMobile ? badge.mobileOffsetY : badge.offsetY;
-
-            return (
-              <div
-                key={`badge-${i}`}
-                className="absolute pointer-events-none transition-transform hover:scale-105"
-                style={{
-                  left: oX,
-                  top: oY,
-                  zIndex: badge.zIndex,
-                  transform: 'translate(-50%, -50%)'
-                }}
-              >
-                <motion.div
-                  onClick={() => window.open(badge.url, '_blank')}
-                  className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 md:px-5 py-2 sm:py-3 rounded-full bg-gradient-to-r from-orange-500 via-pink-500 to-purple-600 shadow-2xl pointer-events-auto cursor-pointer"
-                  style={{
-                    rotate: badge.rotate,
-                    x: parallaxX,
-                    y: parallaxY
-                  }}
-                >
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
-                    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
-                    <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
-                  </svg>
-                  <span className="text-white font-bold tracking-widest text-[10px] sm:text-xs md:text-sm uppercase">
-                    {badge.handle}
-                  </span>
-                </motion.div>
-              </div>
-            );
-          })}
+          {IG_BADGES.map((badge, i) => (
+            <BadgeItem key={`badge-${i}`} badge={badge} smoothX={smoothX} smoothY={smoothY} isMobile={isMobile} />
+          ))}
 
           {/* RENDER STICKERS */}
-          {STICKERS.map((stick, i) => {
-            if (stick.width === 0) return null;
-            const parallaxX = useTransform(smoothX, (v) => (v * 0.12 * stick.depth));
-            const parallaxY = useTransform(smoothY, (v) => (v * 0.12 * stick.depth));
-            const oX = isMobile ? stick.mobileOffsetX : stick.offsetX;
-            const oY = isMobile ? stick.mobileOffsetY : stick.offsetY;
-            const w = isMobile ? stick.mobileWidth : stick.width;
-
-            return (
-              <div
-                key={`stick-${i}`}
-                className="absolute pointer-events-none drop-shadow-2xl"
-                style={{
-                  left: oX,
-                  top: oY,
-                  zIndex: stick.zIndex,
-                  transform: 'translate(-50%, -50%)',
-                  width: w
-                }}
-              >
-                <motion.div
-                  className="relative"
-                  style={{
-                    rotate: stick.rotate,
-                    x: parallaxX,
-                    y: parallaxY
-                  }}
-                >
-                  <Image src={stick.src} width={w} height={w} className="w-full h-auto object-contain" alt="Sticker" unoptimized />
-                </motion.div>
-              </div>
-            );
-          })}
+          {STICKERS.map((stick, i) => (
+            <StickerItem key={`stick-${i}`} stick={stick} smoothX={smoothX} smoothY={smoothY} isMobile={isMobile} />
+          ))}
 
           {/* 4. CENTRAL TEXT PILL BADGE STICKER */}
-          <div
-            className="absolute z-50 pointer-events-none"
-            style={{
-              left: '0px',
-              top: '0px',
-              transform: 'translate(-50%, -50%)',
-            }}
-          >
-            <motion.div
-              className="flex flex-col items-center drop-shadow-[0_0_80px_rgba(0,0,0,1)]"
-              style={{
-                x: useTransform(smoothX, (v) => v * 0.03),
-                y: useTransform(smoothY, (v) => v * 0.03),
-              }}
-            >
-              <div className="relative w-[280px] h-[100px] sm:w-[340px] sm:h-[120px] md:w-[500px] md:h-[180px] lg:w-[600px] lg:h-[220px]">
-                <Image
-                  src="/Stickers/text.avif"
-                  fill
-                  alt="This is where my mind wanders around"
-                  className="object-contain drop-shadow-2xl"
-                  unoptimized
-                />
-              </div>
-            </motion.div>
-          </div>
+          <CentralBadge smoothX={smoothX} smoothY={smoothY} />
 
         </div>
       </div>

@@ -23,6 +23,13 @@ interface MusicContextType {
 
 const MusicContext = createContext<MusicContextType | undefined>(undefined);
 
+// Define global interface extension for dev debugging
+declare global {
+  interface Window {
+    globalAudio?: HTMLAudioElement | null;
+  }
+}
+
 // Global instance to persist across page navigations in Next.js
 let globalAudio: HTMLAudioElement | null = null;
 let hasSetupUnmuteListener = false;
@@ -35,6 +42,18 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [volume, setVolume] = useState(0.8);
   const [isMuted, setIsMuted] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
+
+  // Declare handlers first to satisfy Linter (no-use-before-define)
+  const handleTrackChange = useCallback((index: number) => {
+    if (globalAudio) {
+      globalAudio.pause();
+      globalAudio.src = SONG_LIST[index].audioSrc;
+      _setCurrentTrackIndex(index);
+      globalAudio.play().catch((err) => {
+        console.log("Play blocked after track change:", err);
+      });
+    }
+  }, []);
 
   // Initialize Audio
   useEffect(() => {
@@ -54,7 +73,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           });
       }
       
-      (window as any).globalAudio = globalAudio;
+      window.globalAudio = globalAudio;
     }
 
     const audio = globalAudio;
@@ -81,12 +100,14 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     audio.addEventListener("play", onPlay);
     audio.addEventListener("pause", onPause);
 
-    // Sync initial state
-    setIsPlaying(!audio.paused);
-    setDuration(audio.duration || 0);
-    setVolume(audio.volume);
-    setIsMuted(audio.muted);
-    setIsInitialized(true);
+    // Sync initial state asynchronously to avoid cascading render warning
+    const syncTimer = setTimeout(() => {
+      setIsPlaying(!audio.paused);
+      setDuration(audio.duration || 0);
+      setVolume(audio.volume);
+      setIsMuted(audio.muted);
+      setIsInitialized(true);
+    }, 0);
 
     // Loader completion handler
     const handleLoaderComplete = () => {
@@ -136,25 +157,14 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       audio.removeEventListener("pause", onPause);
       window.removeEventListener("app-loader-complete", handleLoaderComplete);
     };
-  }, [currentTrackIndex]);
-
-  const handleTrackChange = useCallback((index: number) => {
-    if (globalAudio) {
-      globalAudio.pause();
-      globalAudio.src = SONG_LIST[index].audioSrc;
-      _setCurrentTrackIndex(index);
-      globalAudio.play().catch((err) => {
-        console.log("Play blocked after track change:", err);
-      });
-    }
-  }, []);
+  }, [currentTrackIndex, handleTrackChange]); // Added handleTrackChange to dependencies
 
   const togglePlay = () => {
     if (!globalAudio) return;
     if (isPlaying) {
       globalAudio.pause();
     } else {
-      globalAudio.play().catch((err) => console.log("Play blocked:", err));
+      globalAudio.play().catch((err: unknown) => console.log("Play blocked:", err));
     }
   };
 

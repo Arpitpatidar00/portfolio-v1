@@ -15,7 +15,6 @@ export async function POST(request: Request) {
     }
 
     // Basic email format validation
-
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return NextResponse.json(
@@ -25,7 +24,7 @@ export async function POST(request: Request) {
     }
 
     // Send the email
-    const info = await sendMail({
+    await sendMail({
       firstName,
       lastName,
       email,
@@ -37,17 +36,18 @@ export async function POST(request: Request) {
       { message: "Email sent successfully" },
       { status: 200 },
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as { message?: string; code?: string; command?: string; response?: string };
     console.error("Contact API Server Error Details:", {
-      message: error.message,
-      code: error.code,
-      command: error.command,
-      response: error.response,
+      message: err.message,
+      code: err.code,
+      command: err.command,
+      response: err.response,
     });
 
     return NextResponse.json(
       {
-        error: error.message || "Failed to send email. Please try again later.",
+        error: err.message || "Failed to send email. Please try again later.",
       },
       { status: 500 },
     );

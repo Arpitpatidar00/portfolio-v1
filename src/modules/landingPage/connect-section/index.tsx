@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React from "react";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -9,7 +9,15 @@ import { connectSectionContent, routes } from "@/constants";
 export const ConnectSection = () => {
   // Generate random stable positions for stars
   const router = useRouter();
-  const [stars, setStars] = React.useState<any[]>([]);
+  interface Star {
+    id: number;
+    size: number;
+    x: string;
+    y: string;
+    duration: number;
+    delay: number;
+  }
+  const [stars, setStars] = React.useState<Star[]>([]);
 
   React.useEffect(() => {
     setStars(Array.from({ length: 50 }).map((_, i) => ({
