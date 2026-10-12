@@ -1,15 +1,26 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { connectSectionContent, routes } from "@/constants";
+
+type Star = {
+  id: number;
+  size: number;
+  x: string;
+  y: string;
+  duration: number;
+  delay: number;
+};
+
+// A real <a href> keeps the CTA crawlable and keyboard-accessible.
+const MotionLink = motion.create(Link);
 
 export const ConnectSection = () => {
   // Generate random stable positions for stars
-  const router = useRouter();
-  const [stars, setStars] = React.useState<any[]>([]);
+  const [stars, setStars] = React.useState<Star[]>([]);
 
   React.useEffect(() => {
     setStars(Array.from({ length: 50 }).map((_, i) => ({
@@ -65,7 +76,8 @@ export const ConnectSection = () => {
         </motion.span>
 
         {/* Massive Pill Button */}
-        <motion.button
+        <MotionLink
+          href={routes.contact}
           initial={{ scale: 0.9, opacity: 0 }}
           whileInView={{ scale: 1, opacity: 1 }}
           whileHover={{ scale: 1.02 }}
@@ -74,14 +86,14 @@ export const ConnectSection = () => {
           className="relative group px-8 py-6 sm:px-12 sm:py-8 md:px-32 md:py-16 rounded-[60px] sm:rounded-[80px] md:rounded-[100px] border border-white/20 hover:border-white/50 bg-transparent transition-all duration-500 overflow-hidden"
         >
           <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-[0.03] transition-opacity" />
-          <div onClick={() => router.push(routes.contact)} className="flex items-center gap-4 sm:gap-6 md:gap-12 text-white">
+          <div className="flex items-center gap-4 sm:gap-6 md:gap-12 text-white">
             <span
               className="text-2xl sm:text-4xl md:text-8xl font-bold font-heading tracking-tight">
               {connectSectionContent.cta}
             </span>
             <ArrowRight className="w-6 h-6 sm:w-8 sm:h-8 md:w-20 md:h-20 group-hover:translate-x-4 transition-transform duration-500" />
           </div>
-        </motion.button>
+        </MotionLink>
 
         {/* Warning Bottom Text */}
         <motion.p

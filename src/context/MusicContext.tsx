@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { SONG_LIST, Song } from "@/constants/music";
 
 interface MusicContextType {
@@ -11,7 +11,6 @@ interface MusicContextType {
   duration: number;
   volume: number;
   isMuted: boolean;
-  isInitialized: boolean;
   togglePlay: () => void;
   nextTrack: () => void;
   prevTrack: () => void;
@@ -27,51 +26,70 @@ const MusicContext = createContext<MusicContextType | undefined>(undefined);
 let globalAudio: HTMLAudioElement | null = null;
 let hasSetupUnmuteListener = false;
 
+/**
+ * Runs `callback` once the page has finished loading and the browser is idle,
+ * so the ~9 MB track never competes with the page's own HTML, CSS, fonts and
+ * hero images (which decide LCP).
+ */
+const whenPageIsIdle = (callback: () => void) => {
+  const idle = () => {
+    // Safari lacks requestIdleCallback; fall back to a short timeout.
+    if (typeof window.requestIdleCallback === "function") {
+      window.requestIdleCallback(callback, { timeout: 3000 });
+    } else {
+      setTimeout(callback, 1500);
+    }
+  };
+  if (document.readyState === "complete") idle();
+  else window.addEventListener("load", idle, { once: true });
+};
+
+/**
+ * Events that count as "user activation", so the browser lets us unmute.
+ * (scroll and touchstart don't: unmuting on them would pause playback.)
+ */
+const UNMUTE_EVENTS = ["click", "keydown", "touchend"] as const;
+
 export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentTrackIndex, _setCurrentTrackIndex] = useState(0);
+  const currentTrackIndexRef = useRef(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(0.8);
   const [isMuted, setIsMuted] = useState(true);
-  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Initialize Audio
+  const handleTrackChange = useCallback((index: number) => {
+    if (!globalAudio) return;
+    globalAudio.pause();
+    globalAudio.src = SONG_LIST[index].audioSrc;
+    currentTrackIndexRef.current = index;
+    _setCurrentTrackIndex(index);
+    globalAudio.play().catch(() => {});
+  }, []);
+
+  // Initialize Audio (once; the element outlives page navigations)
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
     if (!globalAudio) {
       globalAudio = new Audio(SONG_LIST[0].audioSrc);
-      globalAudio.preload = "auto";
+      // Nothing is downloaded until playback is requested (after the intro and
+      // page load, or on the visitor's first interaction).
+      globalAudio.preload = "none";
       globalAudio.muted = true;
       globalAudio.volume = 0.8;
-      
-      // Attempt immediate muted autoplay
-      const playPromise = globalAudio.play();
-      if (playPromise !== undefined) {
-          playPromise.catch(() => {
-              // Browser may block even muted autoplay, that's okay.
-          });
-      }
-      
-      (window as any).globalAudio = globalAudio;
     }
 
     const audio = globalAudio;
 
-    const onTimeUpdate = () => {
-      setProgress((audio.currentTime / audio.duration) * 100 || 0);
+    const syncState = () => {
+      setIsPlaying(!audio.paused);
+      setDuration(audio.duration || 0);
+      setVolume(audio.volume);
+      setIsMuted(audio.muted);
     };
-
-    const onLoadedMetadata = () => {
-      setDuration(audio.duration);
-    };
-
-    const onEnded = () => {
-      const nextIndex = (currentTrackIndex + 1) % SONG_LIST.length;
-      handleTrackChange(nextIndex);
-    };
-
+    const onTimeUpdate = () => setProgress((audio.currentTime / audio.duration) * 100 || 0);
+    const onLoadedMetadata = () => setDuration(audio.duration);
+    const onEnded = () => handleTrackChange((currentTrackIndexRef.current + 1) % SONG_LIST.length);
     const onPlay = () => setIsPlaying(true);
     const onPause = () => setIsPlaying(false);
 
@@ -80,52 +98,31 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     audio.addEventListener("ended", onEnded);
     audio.addEventListener("play", onPlay);
     audio.addEventListener("pause", onPause);
-
-    // Sync initial state
-    setIsPlaying(!audio.paused);
-    setDuration(audio.duration || 0);
-    setVolume(audio.volume);
-    setIsMuted(audio.muted);
-    setIsInitialized(true);
+    // Sync with an element that may already be playing from a previous mount.
+    audio.addEventListener("volumechange", syncState);
+    queueMicrotask(syncState);
 
     // Loader completion handler
     const handleLoaderComplete = () => {
-      if (globalAudio && globalAudio.paused) {
-        globalAudio.muted = true;
-        globalAudio.play().catch(() => {});
-      }
+      whenPageIsIdle(() => {
+        // Muted autoplay attempt; browsers may block it, that's okay.
+        if (audio.paused) audio.play().catch(() => {});
+      });
     };
-
     window.addEventListener("app-loader-complete", handleLoaderComplete);
 
-    // Global Unmute Listener
+    // Global unmute on the visitor's first real interaction
+    const handleUnmute = () => {
+      audio.muted = false;
+      if (audio.paused) audio.play().catch(() => {});
+      removeUnmuteListeners();
+    };
+    const removeUnmuteListeners = () => {
+      UNMUTE_EVENTS.forEach((event) => window.removeEventListener(event, handleUnmute));
+    };
     if (!hasSetupUnmuteListener) {
       hasSetupUnmuteListener = true;
-
-      const handleUnmute = () => {
-        if (globalAudio) {
-          globalAudio.muted = false;
-          setIsMuted(false);
-          if (globalAudio.paused) {
-            globalAudio.play().catch(() => {});
-          }
-        }
-        cleanupUnmute();
-      };
-
-      const cleanupUnmute = () => {
-        window.removeEventListener("click", handleUnmute);
-        window.removeEventListener("scroll", handleUnmute);
-        window.removeEventListener("keydown", handleUnmute);
-        window.removeEventListener("touchstart", handleUnmute);
-        window.removeEventListener("mousedown", handleUnmute);
-      };
-
-      window.addEventListener("click", handleUnmute);
-      window.addEventListener("scroll", handleUnmute);
-      window.addEventListener("keydown", handleUnmute);
-      window.addEventListener("touchstart", handleUnmute);
-      window.addEventListener("mousedown", handleUnmute);
+      UNMUTE_EVENTS.forEach((event) => window.addEventListener(event, handleUnmute));
     }
 
     return () => {
@@ -134,27 +131,17 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       audio.removeEventListener("ended", onEnded);
       audio.removeEventListener("play", onPlay);
       audio.removeEventListener("pause", onPause);
+      audio.removeEventListener("volumechange", syncState);
       window.removeEventListener("app-loader-complete", handleLoaderComplete);
     };
-  }, [currentTrackIndex]);
-
-  const handleTrackChange = useCallback((index: number) => {
-    if (globalAudio) {
-      globalAudio.pause();
-      globalAudio.src = SONG_LIST[index].audioSrc;
-      _setCurrentTrackIndex(index);
-      globalAudio.play().catch((err) => {
-        console.log("Play blocked after track change:", err);
-      });
-    }
-  }, []);
+  }, [handleTrackChange]);
 
   const togglePlay = () => {
     if (!globalAudio) return;
     if (isPlaying) {
       globalAudio.pause();
     } else {
-      globalAudio.play().catch((err) => console.log("Play blocked:", err));
+      globalAudio.play().catch(() => {});
     }
   };
 
@@ -169,14 +156,11 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const setMuted = (muted: boolean) => {
-    if (globalAudio) {
-      globalAudio.muted = muted;
-      setIsMuted(muted);
-    }
+    if (globalAudio) globalAudio.muted = muted; // "volumechange" syncs state
   };
 
   const seek = (val: number) => {
-    if (globalAudio) {
+    if (globalAudio && Number.isFinite(globalAudio.duration)) {
       const time = (val / 100) * globalAudio.duration;
       globalAudio.currentTime = time;
       setProgress(val);
@@ -191,13 +175,11 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     duration,
     volume,
     isMuted,
-    isInitialized,
     togglePlay,
     nextTrack,
     prevTrack,
     setVolume: (v: number) => {
-        if (globalAudio) globalAudio.volume = v;
-        setVolume(v);
+      if (globalAudio) globalAudio.volume = v; // "volumechange" syncs state
     },
     setMuted,
     seek,

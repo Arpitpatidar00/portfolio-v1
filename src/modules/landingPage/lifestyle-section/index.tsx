@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
+import { motion, useMotionValue, useSpring, useTransform, type MotionValue } from "framer-motion";
 import { socialLinks } from "@/constants";
 
 // The photo structure mimicking polaroids
@@ -208,6 +208,108 @@ const IG_BADGES = [
 ];
 
 
+/* ─── Parallax layers ─────────────────────────────────────────
+ * Each layer is its own component so hooks are never called inside
+ * a loop (Rules of Hooks). Output is identical to the previous inline version.
+ * ──────────────────────────────────────────────────────────── */
+
+type Pointer = { smoothX: MotionValue<number>; smoothY: MotionValue<number> };
+
+const useParallax = ({ smoothX, smoothY }: Pointer, factor: number) => ({
+  x: useTransform(smoothX, (v) => v * factor),
+  y: useTransform(smoothY, (v) => v * factor),
+});
+
+const Polaroid = ({ data, isMobile, pointer }: { data: typeof PHOTOS[number]; isMobile: boolean; pointer: Pointer }) => {
+  const { x, y } = useParallax(pointer, 0.05 * data.depth);
+  return (
+    <div
+      className="absolute pointer-events-none drop-shadow-2xl"
+      style={{
+        left: isMobile ? data.mobileOffsetX : data.offsetX,
+        top: isMobile ? data.mobileOffsetY : data.offsetY,
+        zIndex: data.zIndex,
+        transform: 'translate(-50%, -50%)'
+      }}
+    >
+      <motion.div
+        className="w-[220px] h-[260px] sm:w-[260px] sm:h-[300px] md:w-[320px] md:h-[380px] rounded-[12px] sm:rounded-[16px] bg-[#121212] p-2 sm:p-3 shadow-[0_20px_50px_rgba(0,0,0,0.8)] border border-white/5 flex flex-col"
+        style={{ rotate: data.rotate, x, y }}
+      >
+        <div className="relative w-full flex-grow rounded-[6px] sm:rounded-[8px] overflow-hidden bg-black/50">
+          <Image
+            src={data.src}
+            fill
+            sizes="(min-width: 768px) 300px, (min-width: 640px) 240px, 210px"
+            alt={data.title ? `${data.title} — travel photo by Arpit Patidar` : "Travel photo by Arpit Patidar"}
+            className="object-cover opacity-90 transition-transform duration-700 ease-out hover:scale-110 pointer-events-auto"
+          />
+        </div>
+        {data.title && (
+          <div className="w-full text-center mt-2 sm:mt-3 mb-1 sm:mb-2 text-white/70 text-sm sm:text-base md:text-lg lg:text-xl font-medium tracking-wide" style={{ fontFamily: 'var(--font-heading)' }}>
+            {data.title}
+          </div>
+        )}
+      </motion.div>
+    </div>
+  );
+};
+
+const IgBadge = ({ badge, isMobile, pointer }: { badge: typeof IG_BADGES[number]; isMobile: boolean; pointer: Pointer }) => {
+  const { x, y } = useParallax(pointer, 0.08 * badge.depth);
+  return (
+    <div
+      className="absolute pointer-events-none transition-transform hover:scale-105"
+      style={{
+        left: isMobile ? badge.mobileOffsetX : badge.offsetX,
+        top: isMobile ? badge.mobileOffsetY : badge.offsetY,
+        zIndex: badge.zIndex,
+        transform: 'translate(-50%, -50%)'
+      }}
+    >
+      {/* Real link instead of window.open, so it's crawlable and keyboard-accessible */}
+      <motion.a
+        href={badge.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`Instagram ${badge.handle} (opens in a new tab)`}
+        className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 md:px-5 py-2 sm:py-3 rounded-full bg-gradient-to-r from-orange-500 via-pink-500 to-purple-600 shadow-2xl pointer-events-auto cursor-pointer"
+        style={{ rotate: badge.rotate, x, y }}
+      >
+        <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+          <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+          <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+        </svg>
+        <span className="text-white font-bold tracking-widest text-[10px] sm:text-xs md:text-sm uppercase">
+          {badge.handle}
+        </span>
+      </motion.a>
+    </div>
+  );
+};
+
+const Sticker = ({ stick, isMobile, pointer }: { stick: typeof STICKERS[number]; isMobile: boolean; pointer: Pointer }) => {
+  const { x, y } = useParallax(pointer, 0.12 * stick.depth);
+  const w = isMobile ? stick.mobileWidth : stick.width;
+  return (
+    <div
+      className="absolute pointer-events-none drop-shadow-2xl"
+      style={{
+        left: isMobile ? stick.mobileOffsetX : stick.offsetX,
+        top: isMobile ? stick.mobileOffsetY : stick.offsetY,
+        zIndex: stick.zIndex,
+        transform: 'translate(-50%, -50%)',
+        width: w
+      }}
+    >
+      <motion.div className="relative" style={{ rotate: stick.rotate, x, y }}>
+        <Image src={stick.src} width={w} height={w} className="w-full h-auto object-contain" alt="" />
+      </motion.div>
+    </div>
+  );
+};
+
 export const LifestyleSection = () => {
   const [isMobile, setIsMobile] = useState(false);
 
@@ -218,6 +320,7 @@ export const LifestyleSection = () => {
   const springConfig = { damping: 40, stiffness: 200, mass: 1 };
   const smoothX = useSpring(mouseX, springConfig);
   const smoothY = useSpring(mouseY, springConfig);
+  const pointer = { smoothX, smoothY };
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -256,118 +359,19 @@ export const LifestyleSection = () => {
         <div className="relative w-0 h-0 flex items-center justify-center" style={{ transform: isMobile ? 'scale(0.65)' : 'scale(1)' }}>
 
           {/* 1. RENDER POLAROIDS */}
-          {PHOTOS.map((data) => {
-            const parallaxX = useTransform(smoothX, (v) => (v * 0.05 * data.depth));
-            const parallaxY = useTransform(smoothY, (v) => (v * 0.05 * data.depth));
-            const oX = isMobile ? data.mobileOffsetX : data.offsetX;
-            const oY = isMobile ? data.mobileOffsetY : data.offsetY;
-
-            return (
-              <div
-                key={`photo-${data.id}`}
-                className="absolute pointer-events-none drop-shadow-2xl"
-                style={{
-                  left: oX,
-                  top: oY,
-                  zIndex: data.zIndex,
-                  transform: 'translate(-50%, -50%)'
-                }}
-              >
-                <motion.div
-                  className="w-[220px] h-[260px] sm:w-[260px] sm:h-[300px] md:w-[320px] md:h-[380px] rounded-[12px] sm:rounded-[16px] bg-[#121212] p-2 sm:p-3 shadow-[0_20px_50px_rgba(0,0,0,0.8)] border border-white/5 flex flex-col"
-                  style={{
-                    rotate: data.rotate,
-                    x: parallaxX,
-                    y: parallaxY
-                  }}
-                >
-                  <div className="relative w-full flex-grow rounded-[6px] sm:rounded-[8px] overflow-hidden bg-black/50">
-                    <Image src={data.src} fill alt="Lifestyle" className="object-cover opacity-90 transition-transform duration-700 ease-out hover:scale-110 pointer-events-auto" unoptimized />
-                  </div>
-                  {data.title && (
-                    <div className="w-full text-center mt-2 sm:mt-3 mb-1 sm:mb-2 text-white/50 opacity-80 text-sm sm:text-base md:text-lg lg:text-xl font-medium tracking-wide" style={{ fontFamily: 'var(--font-heading)' }}>
-                      {data.title}
-                    </div>
-                  )}
-                </motion.div>
-              </div>
-            );
-          })}
+          {PHOTOS.map((data) => (
+            <Polaroid key={`photo-${data.id}`} data={data} isMobile={isMobile} pointer={pointer} />
+          ))}
 
           {/* 2. RENDER IG BADGES */}
-          {IG_BADGES.map((badge, i) => {
-            const parallaxX = useTransform(smoothX, (v) => (v * 0.08 * badge.depth));
-            const parallaxY = useTransform(smoothY, (v) => (v * 0.08 * badge.depth));
-            const oX = isMobile ? badge.mobileOffsetX : badge.offsetX;
-            const oY = isMobile ? badge.mobileOffsetY : badge.offsetY;
-
-            return (
-              <div
-                key={`badge-${i}`}
-                className="absolute pointer-events-none transition-transform hover:scale-105"
-                style={{
-                  left: oX,
-                  top: oY,
-                  zIndex: badge.zIndex,
-                  transform: 'translate(-50%, -50%)'
-                }}
-              >
-                <motion.div
-                  onClick={() => window.open(badge.url, '_blank')}
-                  className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 md:px-5 py-2 sm:py-3 rounded-full bg-gradient-to-r from-orange-500 via-pink-500 to-purple-600 shadow-2xl pointer-events-auto cursor-pointer"
-                  style={{
-                    rotate: badge.rotate,
-                    x: parallaxX,
-                    y: parallaxY
-                  }}
-                >
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
-                    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
-                    <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
-                  </svg>
-                  <span className="text-white font-bold tracking-widest text-[10px] sm:text-xs md:text-sm uppercase">
-                    {badge.handle}
-                  </span>
-                </motion.div>
-              </div>
-            );
-          })}
+          {IG_BADGES.map((badge, i) => (
+            <IgBadge key={`badge-${i}`} badge={badge} isMobile={isMobile} pointer={pointer} />
+          ))}
 
           {/* RENDER STICKERS */}
-          {STICKERS.map((stick, i) => {
-            if (stick.width === 0) return null;
-            const parallaxX = useTransform(smoothX, (v) => (v * 0.12 * stick.depth));
-            const parallaxY = useTransform(smoothY, (v) => (v * 0.12 * stick.depth));
-            const oX = isMobile ? stick.mobileOffsetX : stick.offsetX;
-            const oY = isMobile ? stick.mobileOffsetY : stick.offsetY;
-            const w = isMobile ? stick.mobileWidth : stick.width;
-
-            return (
-              <div
-                key={`stick-${i}`}
-                className="absolute pointer-events-none drop-shadow-2xl"
-                style={{
-                  left: oX,
-                  top: oY,
-                  zIndex: stick.zIndex,
-                  transform: 'translate(-50%, -50%)',
-                  width: w
-                }}
-              >
-                <motion.div
-                  className="relative"
-                  style={{
-                    rotate: stick.rotate,
-                    x: parallaxX,
-                    y: parallaxY
-                  }}
-                >
-                  <Image src={stick.src} width={w} height={w} className="w-full h-auto object-contain" alt="Sticker" unoptimized />
-                </motion.div>
-              </div>
-            );
-          })}
+          {STICKERS.filter((stick) => stick.width !== 0).map((stick, i) => (
+            <Sticker key={`stick-${i}`} stick={stick} isMobile={isMobile} pointer={pointer} />
+          ))}
 
           {/* 4. CENTRAL TEXT PILL BADGE STICKER */}
           <div
@@ -389,9 +393,9 @@ export const LifestyleSection = () => {
                 <Image
                   src="/Stickers/text.avif"
                   fill
+                  sizes="(min-width: 1024px) 600px, (min-width: 768px) 500px, 340px"
                   alt="This is where my mind wanders around"
                   className="object-contain drop-shadow-2xl"
-                  unoptimized
                 />
               </div>
             </motion.div>

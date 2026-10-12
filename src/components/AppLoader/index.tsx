@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const LANGUAGES = [
@@ -17,11 +17,21 @@ const LANGUAGES = [
   "ನಮಸ್ಕಾರ",      // Kannada
   "नमस्कार",       // Marathi
 ];
+
+// Set before first paint by the inline script in app/layout.tsx; never changes afterwards.
+const subscribeNoop = () => () => {};
+const getIntroSeen = () => document.documentElement.hasAttribute("data-intro-seen");
+const getIntroSeenOnServer = () => false;
+
 export const AppLoader = () => {
   const [index, setIndex] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [skipped, setSkipped] = useState(false);
+  // Returning visitors (same browser session) skip the intro.
+  const introSeen = useSyncExternalStore(subscribeNoop, getIntroSeen, getIntroSeenOnServer);
+  const loading = !introSeen && !skipped;
 
   useEffect(() => {
+    if (!loading) return;
     if (index < LANGUAGES.length - 1) {
       const timer = setTimeout(() => {
         setIndex(index + 1);
@@ -30,21 +40,26 @@ export const AppLoader = () => {
     } else {
       // Stay on the last one for a moment before swiping
       const timer = setTimeout(() => {
-        setLoading(false);
+        setSkipped(true);
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [index]);
+  }, [index, loading]);
 
   // Dispatch event when loader finishes so music can start
   useEffect(() => {
     if (!loading) {
+      try {
+        sessionStorage.setItem("intro-seen", "1");
+      } catch {
+        // Storage can be unavailable (private mode); the intro just plays again.
+      }
       window.dispatchEvent(new CustomEvent("app-loader-complete"));
     }
   }, [loading]);
 
   const handleSkip = () => {
-    setLoading(false);
+    setSkipped(true);
   };
 
   return (
@@ -54,6 +69,7 @@ export const AppLoader = () => {
           initial={{ y: 0 }}
           exit={{ y: "-100%" }}
           transition={{ duration: 1, ease: [0.76, 0, 0.24, 1] }}
+          data-app-loader=""
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#050505] overflow-hidden"
         >
           {/* Grain Texture Overlay */}
@@ -77,9 +93,9 @@ export const AppLoader = () => {
                   Initializing Experience
                 </span>
               </div>
-              <h1 className="text-4xl sm:text-6xl md:text-8xl font-heading font-black text-white uppercase tracking-tighter">
+              <p className="text-4xl sm:text-6xl md:text-8xl font-heading font-black text-white uppercase tracking-tighter leading-[0.9]">
                 {LANGUAGES[index]}
-              </h1>
+              </p>
             </motion.div>
           </div>
 

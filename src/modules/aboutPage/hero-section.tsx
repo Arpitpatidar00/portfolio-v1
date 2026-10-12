@@ -113,6 +113,7 @@ export const HeroSection = () => {
       >
         <motion.div className="space-y-4" variants={fadeUp}>
           <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-[6vw] font-black leading-[0.85] tracking-tighter !lowercase font-heading mt-6 md:mt-0">
+            <span className="sr-only">Arpit Patidar — about, resume and experience. </span>
             visual<br />Developer
           </h1>
           <p className="max-w-md text-sm md:text-base text-muted-foreground leading-relaxed font-medium pt-4 md:pl-10 lg:pl-[20%]">
@@ -128,6 +129,7 @@ export const HeroSection = () => {
               href={social.href}
               target="_blank"
               rel="noopener noreferrer"
+              aria-label={`${social.name} (opens in a new tab)`}
               variants={popIn}
               whileHover={{ scale: 1.1, translateY: -2 }}
               whileTap={{ scale: 0.95 }}
@@ -173,12 +175,15 @@ export const HeroSection = () => {
           >
             {/* Main Image */}
             <div className="relative w-full h-[110%] transform -translate-y-[5%]">
+              {/* Likely LCP element on /about: optimized and fetched with high priority. */}
               <Image
                 src="/self.png"
-                alt="Portrait"
+                alt="Portrait of Arpit Patidar"
                 fill
+                sizes="(min-width: 1024px) 45vw, 100vw"
+                loading="eager"
+                fetchPriority="high"
                 className="object-contain object-bottom"
-                unoptimized
               />
               <div className="absolute inset-0 bg-[#FBB040]/10 mix-blend-multiply pointer-events-none" />
             </div>

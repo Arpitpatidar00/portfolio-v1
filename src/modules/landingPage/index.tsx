@@ -1,4 +1,3 @@
-"use client";
 import { HeroSection } from "./hero-section";
 import { IdentitySection } from "./identity-section";
 import { WorkSection } from "./work-section";

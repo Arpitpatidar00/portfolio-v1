@@ -162,3 +162,7 @@
     color: var(--background);
   }
 }
+/* Intro loader plays once per session (flag set by the inline script in layout.tsx). */
+html[data-intro-seen] [data-app-loader] {
+  display: none;
+}

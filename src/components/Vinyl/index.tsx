@@ -23,12 +23,13 @@ export const Vinyl = ({ size = 120, className = "", isPlaying = true }: VinylPro
         transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
       >
         {/* Main Texture Image */}
+        {/* 715 KB source shown at ~100 px on every page: let Next resize it. */}
         <Image
           src="/Stickers/vinyl.png"
           fill
-          alt="Vinyl Record"
+          sizes={`${size}px`}
+          alt=""
           className="object-cover"
-          unoptimized
         />
         
         {/* Subtle Conic Gradient for "Grooves" effect */}

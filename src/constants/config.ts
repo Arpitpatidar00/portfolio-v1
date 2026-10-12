@@ -6,11 +6,29 @@
 export const siteConfig = {
   name: "Arpit Patidar",
   shortName: "Arpit",
-  title: "Arpit Patidar | Visual Developer",
+  jobTitle: "Full-Stack & Web3 Developer",
+  title: "Arpit Patidar — Full-Stack & Web3 Developer (Next.js, Node.js)",
   description:
-    "A showcase of selected works and projects built by Arpit Patidar.",
-  url: "https://arpitpatidar.com",
-  locale: "en-US",
+    "Arpit Patidar, full-stack & Web3 developer in India. I build Next.js, Node.js and TypeScript apps: cross-chain payments, stablecoins, SaaS and e-commerce.",
+  /*
+   * The public URL is NOT hard-coded here. Set NEXT_PUBLIC_SITE_URL in your
+   * hosting environment (see src/lib/seo.ts). The previous value,
+   * https://arpitpatidar.com, is a different person's website.
+   */
+  keywords: [
+    "Next.js",
+    "React",
+    "TypeScript",
+    "Node.js",
+    "NestJS",
+    "MongoDB",
+    "Supabase",
+    "Web3",
+    "Stablecoin payments",
+    "Cross-chain payments",
+    "Full-stack development",
+  ],
+  locale: "en_IN",
   timezone: "Asia/Kolkata",
   location: "India",
 };

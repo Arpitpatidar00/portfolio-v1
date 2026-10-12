@@ -1,8 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { useRouter } from "next/navigation";
+import { routes } from "@/constants";
+
+// A real <a href> keeps the CTA crawlable and keyboard-accessible.
+const MotionLink = motion.create(Link);
 
 interface Tag {
   text: string;
@@ -87,7 +91,6 @@ const SKILL_CATEGORIES: SkillCategory[] = [
 
 
 export const SkillsSection = () => {
-  const router = useRouter()
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(1); // Match the mockup image by defaulting to Index 1 (GRAPHICS)
   const [isMobile, setIsMobile] = useState(false);
 
@@ -173,12 +176,12 @@ export const SkillsSection = () => {
       </div>
 
       {/* Button at the bottom */}
-      <motion.button
+      <MotionLink
+        href={routes.projects}
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
         className="mt-12 sm:mt-16 md:mt-32 flex items-center gap-6 sm:gap-8 md:gap-12 pl-6 sm:pl-8 md:pl-10 pr-2 py-2 rounded-full border border-white/20 bg-black/40 backdrop-blur-md group hover:border-accent/50 transition-all duration-300 shadow-[0_0_50px_rgba(0,0,0,0.8)]"
-        onClick={() => router.push("/projects")}
       >
         <span className="text-white/80 font-medium tracking-wide text-xs sm:text-sm md:text-base group-hover:text-white transition-colors">
           Explore All Works
@@ -190,7 +193,7 @@ export const SkillsSection = () => {
             <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
           </svg>
         </div>
-      </motion.button>
+      </MotionLink>
 
     </section>
   );

@@ -74,35 +74,35 @@ export const AppConnect = () => {
             >
                {/* Center Top */}
                <div className="absolute top-[16px] sm:top-[20px] left-1/2 -translate-x-1/2">
-                  <Link href={socialLinks.twitter} target="_blank" className="flex items-center justify-center bg-white/10 hover:bg-accent rounded-full text-white hover:text-black transition-all duration-300 w-[34px] h-[34px] sm:w-[38px] sm:h-[38px]">
+                  <Link href={socialLinks.twitter} target="_blank" rel="noopener noreferrer" aria-label="X (Twitter)" className="flex items-center justify-center bg-white/10 hover:bg-accent rounded-full text-white hover:text-black transition-all duration-300 w-[34px] h-[34px] sm:w-[38px] sm:h-[38px]">
                      <XIcon size={14} />
                   </Link>
                </div>
 
                {/* Left Mid-Top */}
                <div className="absolute top-[48px] sm:top-[55px] left-[16px] sm:left-[20px]">
-                  <Link href={socialLinks.github} target="_blank" className="flex items-center justify-center bg-white/10 hover:bg-accent rounded-full text-white hover:text-black transition-all duration-300 w-[34px] h-[34px] sm:w-[38px] sm:h-[38px]">
+                  <Link href={socialLinks.github} target="_blank" rel="noopener noreferrer" aria-label="GitHub" className="flex items-center justify-center bg-white/10 hover:bg-accent rounded-full text-white hover:text-black transition-all duration-300 w-[34px] h-[34px] sm:w-[38px] sm:h-[38px]">
                      <GithubIcon size={14} />
                   </Link>
                </div>
 
                {/* Right Mid-Top */}
                <div className="absolute top-[48px] sm:top-[55px] right-[16px] sm:right-[20px]">
-                  <Link href={socialLinks.linkedin} target="_blank" className="flex items-center justify-center bg-white/10 hover:bg-accent rounded-full text-white hover:text-black transition-all duration-300 w-[34px] h-[34px] sm:w-[38px] sm:h-[38px]">
+                  <Link href={socialLinks.linkedin} target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" className="flex items-center justify-center bg-white/10 hover:bg-accent rounded-full text-white hover:text-black transition-all duration-300 w-[34px] h-[34px] sm:w-[38px] sm:h-[38px]">
                      <LinkedinIcon size={14} />
                   </Link>
                </div>
 
                {/* Bottom Left */}
                <div className="absolute bottom-[32px] sm:bottom-[40px] left-[28px] sm:left-[35px]">
-                  <Link href={routes.projects} className="flex items-center justify-center bg-white/10 hover:bg-accent rounded-full text-white hover:text-black transition-all duration-300 w-[34px] h-[34px] sm:w-[38px] sm:h-[38px]">
+                  <Link href={routes.projects} aria-label="Projects" className="flex items-center justify-center bg-white/10 hover:bg-accent rounded-full text-white hover:text-black transition-all duration-300 w-[34px] h-[34px] sm:w-[38px] sm:h-[38px]">
                      <FolderOpen size={14} />
                   </Link>
                </div>
 
                {/* Bottom Right */}
                <div className="absolute bottom-[32px] sm:bottom-[40px] right-[28px] sm:right-[35px]">
-                  <Link href={routes.contact} className="flex items-center justify-center bg-white/10 hover:bg-accent rounded-full text-white hover:text-black transition-all duration-300 w-[34px] h-[34px] sm:w-[38px] sm:h-[38px]">
+                  <Link href={routes.contact} aria-label="Contact" className="flex items-center justify-center bg-white/10 hover:bg-accent rounded-full text-white hover:text-black transition-all duration-300 w-[34px] h-[34px] sm:w-[38px] sm:h-[38px]">
                      <Mail size={14} />
                   </Link>
                </div>

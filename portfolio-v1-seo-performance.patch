@@ -1,0 +1,3386 @@
+From 1eb7fef685a09a74bfdfe2943ad29bd71e122557 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 12 Oct 2026 17:59:19 +0000
+Subject: [PATCH] SEO, performance and production hardening
+
+SEO
+- Root layout is now a Server Component with full metadata (title template,
+  description, canonical, Open Graph, Twitter, robots); client chrome moved
+  to layout/AppShell
+- Unique title/description/canonical per page via src/lib/seo.ts
+- robots.ts, sitemap.ts, generated opengraph-image, styled 404 (real 404)
+- JSON-LD: Person, WebSite, ProfilePage, BreadcrumbList, ItemList of projects
+- One descriptive H1 per page (decorative "Code"/"Arpit"/loader text demoted)
+- CTAs, project cards and Instagram badges are real <a href> links
+- Site URL comes from NEXT_PUBLIC_SITE_URL / Vercel (arpitpatidar.com is a
+  different person's site); previews are noindexed
+- Replaced template copy (Legendarium, lorem subtitles)
+
+Performance
+- Removed `unoptimized` from raster images and added `sizes`
+  (home page images ~24.6 MB -> ~1.2 MB)
+- Stopped preloading a 5.6 MB PNG on the home page
+- 9.4 MB audio no longer downloads during page load (preload=none, starts
+  after load + idle)
+- Hero background: lossless WebP (96 KB -> 38 KB) + high-priority preload
+- Intro loader plays once per session
+- Image/static caching and security headers in next.config.ts
+
+Correctness / security
+- Fixed hydration mismatches in the projects timeline
+- Fixed Rules-of-Hooks violation in the lifestyle section
+- Contact API: HTML escaping, header-injection guard, length limits,
+  honeypot, rate limit, no SMTP error leakage, TLS verification restored
+- Labels/aria for form fields and icon-only controls
+
+Adds scripts/seo-check.mjs (npm run seo:check) and .env.example.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01D6GtJ3T8SLdX1dPbuxmomB
+---
+ .env.example                                  |  15 ++
+ .gitignore                                    |   3 +
+ README.md                                     |  31 +++
+ next.config.ts                                |  39 ++-
+ package.json                                  |   3 +-
+ public/bg/herobg.webp                         | Bin 0 -> 38364 bytes
+ scripts/seo-check.mjs                         |  96 ++++++++
+ src/app/about/page.tsx                        |  34 ++-
+ src/app/api/contact/route.ts                  | 121 +++++++---
+ src/app/contact/page.tsx                      |  26 +-
+ src/app/globals.css                           |   6 +-
+ src/app/layout.tsx                            |  65 ++++-
+ src/app/not-found.tsx                         |  34 +++
+ src/app/opengraph-image.tsx                   |  70 ++++++
+ src/app/page.tsx                              |  29 ++-
+ src/app/projects/page.tsx                     |  42 +++-
+ src/app/robots.ts                             |  14 ++
+ src/app/sitemap.ts                            |   9 +
+ src/components/AppConnect/index.tsx           |  10 +-
+ src/components/AppLoader/index.tsx            |  20 +-
+ src/components/JsonLd/index.tsx               |  13 +
+ src/components/MusicPlayer/ControlBar.tsx     |   2 +-
+ src/components/MusicPlayer/SongCarousel.tsx   |   2 +-
+ src/components/Vinyl/index.tsx                |   5 +-
+ src/constants/config.ts                       |  26 +-
+ src/constants/content.ts                      |   4 +-
+ src/constants/projects.ts                     |  27 +++
+ src/context/MusicContext.tsx                  |  42 ++--
+ src/layout/AppNavbar/index.tsx                |   4 +-
+ src/layout/AppShell/index.tsx                 |  18 ++
+ src/lib/mail.ts                               |  58 +++--
+ src/lib/seo.ts                                | 179 ++++++++++++++
+ src/modules/aboutPage/hero-section.tsx        |   8 +-
+ src/modules/aboutPage/index.tsx               |   1 -
+ src/modules/aboutPage/resume-section.tsx      |   2 +
+ src/modules/contactPage/index.tsx             |  71 ++++--
+ .../landingPage/connect-section/index.tsx     |  26 +-
+ .../landingPage/experience-section/index.tsx  |  13 +-
+ src/modules/landingPage/footer/index.tsx      |   7 +-
+ .../landingPage/hero-section/index.tsx        |  15 +-
+ .../landingPage/identity-section/index.tsx    |   4 +-
+ src/modules/landingPage/index.tsx             |   1 -
+ .../landingPage/lifestyle-section/index.tsx   | 224 +++++++++---------
+ .../landingPage/skills-section/index.tsx      |  13 +-
+ .../landingPage/work-section/index.tsx        |  23 +-
+ src/modules/projectsPage/index.tsx            |   3 +-
+ src/modules/projectsPage/zig-zag-timeline.tsx | 123 +++++-----
+ 47 files changed, 1234 insertions(+), 347 deletions(-)
+ create mode 100644 .env.example
+ create mode 100644 public/bg/herobg.webp
+ create mode 100644 scripts/seo-check.mjs
+ create mode 100644 src/app/not-found.tsx
+ create mode 100644 src/app/opengraph-image.tsx
+ create mode 100644 src/app/robots.ts
+ create mode 100644 src/app/sitemap.ts
+ create mode 100644 src/components/JsonLd/index.tsx
+ create mode 100644 src/constants/projects.ts
+ create mode 100644 src/layout/AppShell/index.tsx
+ create mode 100644 src/lib/seo.ts
+
+diff --git a/.env.example b/.env.example
+new file mode 100644
+index 0000000..ae581ba
+--- /dev/null
++++ b/.env.example
+@@ -0,0 +1,15 @@
++# ─── SEO ──────────────────────────────────────────────────────
++# Your real production domain (no trailing slash). Used for canonical URLs,
++# the sitemap, Open Graph tags and structured data.
++# On Vercel this can be omitted: VERCEL_PROJECT_PRODUCTION_URL is used instead,
++# but a custom domain you own is strongly recommended.
++NEXT_PUBLIC_SITE_URL=https://your-domain.com
++
++# ─── Contact form (Nodemailer / SMTP) ─────────────────────────
++SMTP_HOST=smtp.gmail.com
++SMTP_PORT=587
++SMTP_SECURE=false
++SMTP_USER=you@gmail.com
++# For Gmail use an App Password, not your account password.
++SMTP_PASSWORD=
++RECEIVER_EMAIL=you@gmail.com
+diff --git a/.gitignore b/.gitignore
+index 5ef6a52..df24dfc 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -39,3 +39,6 @@ yarn-error.log*
+ # typescript
+ *.tsbuildinfo
+ next-env.d.ts
++
++# allow the documented example env file
++!.env.example
+diff --git a/README.md b/README.md
+index e215bc4..9566527 100644
+--- a/README.md
++++ b/README.md
+@@ -34,3 +34,34 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
+ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+ 
+ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
++
++## SEO & performance setup
++
++This project ships with production SEO wiring. Before deploying:
++
++1. **Set your domain.** Copy `.env.example` to `.env.local` (and add the same
++   variables in your host, e.g. Vercel → Settings → Environment Variables).
++   `NEXT_PUBLIC_SITE_URL` drives canonical URLs, the sitemap, Open Graph tags
++   and structured data. Without it, Vercel's production URL is used.
++2. **Deploy, then verify:**
++   ```bash
++   npm run build && npm start
++   npm run seo:check                          # local
++   npm run seo:check -- https://your-domain.com  # production
++   ```
++3. **Google Search Console:** verify the domain, submit `/sitemap.xml`, and
++   run URL Inspection → "Test live URL" on `/`, `/about`, `/projects`.
++
++Where things live:
++
++| What | File |
++| --- | --- |
++| Titles, descriptions, canonicals, JSON-LD builders | `src/lib/seo.ts` |
++| Site-wide metadata, robots meta, fonts | `src/app/layout.tsx` |
++| `robots.txt` / `sitemap.xml` | `src/app/robots.ts`, `src/app/sitemap.ts` |
++| Social preview image (generated) | `src/app/opengraph-image.tsx` |
++| Structured data component | `src/components/JsonLd` |
++| Image, caching and security headers | `next.config.ts` |
++
++Preview deployments (`VERCEL_ENV !== "production"`) are automatically
++`noindex` and blocked in `robots.txt`.
+diff --git a/next.config.ts b/next.config.ts
+index 9aaefd9..6ff28e7 100644
+--- a/next.config.ts
++++ b/next.config.ts
+@@ -1,17 +1,44 @@
+ import type { NextConfig } from "next";
+ 
++const ONE_YEAR = 60 * 60 * 24 * 365;
++const THIRTY_DAYS = 60 * 60 * 24 * 30;
++
++const securityHeaders = [
++  { key: "X-Content-Type-Options", value: "nosniff" },
++  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
++  { key: "X-Frame-Options", value: "SAMEORIGIN" },
++  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), browsing-topics=()" },
++  { key: "Strict-Transport-Security", value: `max-age=${ONE_YEAR}` },
++];
++
+ const nextConfig: NextConfig = {
++  poweredByHeader: false,
++
++  images: {
++    // AVIF first (smallest), WebP fallback. Screenshots drop from 1–6 MB PNGs to tens of KB.
++    formats: ["image/avif", "image/webp"],
++    // Files in /public are versioned by name, so optimized copies can live long in the cache.
++    minimumCacheTTL: THIRTY_DAYS,
++  },
++
+   async headers() {
++    // Public assets aren't content-hashed, so cache for 30 days and revalidate
++    // in the background rather than marking them immutable for a year.
++    const assetCache = {
++      key: "Cache-Control",
++      value: `public, max-age=${THIRTY_DAYS}, stale-while-revalidate=${THIRTY_DAYS}`,
++    };
++
+     return [
++      { source: "/:path*", headers: securityHeaders },
+       {
+         source: "/bg/:path*",
+-        headers: [
+-          {
+-            key: "Cache-Control",
+-            value: "public, max-age=31536000, immutable",
+-          },
+-        ],
++        headers: [{ key: "Cache-Control", value: `public, max-age=${ONE_YEAR}, immutable` }],
+       },
++      ...["icons", "Stickers", "personal", "selected-work", "musics", "resume"].map((dir) => ({
++        source: `/${dir}/:path*`,
++        headers: [assetCache],
++      })),
+     ];
+   },
+ };
+diff --git a/package.json b/package.json
+index 9e6362b..b0615b6 100644
+--- a/package.json
++++ b/package.json
+@@ -7,7 +7,8 @@
+     "build": "next build",
+     "start": "next start",
+     "lint": "eslint",
+-    "clean": "rm -rf .next && rm -rf node_modules"
++    "clean": "rm -rf .next && rm -rf node_modules",
++    "seo:check": "node scripts/seo-check.mjs"
+   },
+   "dependencies": {
+     "class-variance-authority": "^0.7.1",
+diff --git a/public/bg/herobg.webp b/public/bg/herobg.webp
+new file mode 100644
+index 0000000000000000000000000000000000000000..352403980718ab8312f907ba4d8c4068b44377a8
+GIT binary patch
+literal 38364
+zcmV(}K+wNZNk&H0l>h)&MM6+kP&iD;l>h)Q_rk0Y)rupxZ39Wt|9_oy&@Qm|h?oG*
+z?x_~pbnhwzW&r^NRS%$*0%)VI^%<(5hd@w-LJ$JntJs4AsCc;)dj$d1tu+XWh@Y&(
+z&*s2>2F!#4dRIduIeSHDcrF@2S6H%>vU*FPQq4w7#r-7$l)Zd{>Y+u&t`5=!RHKX}
+zuL728H3%DB26CCG1vsBDz=_8zYzzdIH*J2+1-r}iYY>1|Uftp#q=0#OU>*wt=!w)w
+zHAspVlxhn=1w9bPp0U;?A?OeoZCsBm(>PY#3tCm%<~^g7k+sFkLZ#y4BTJ1>w;d8g
+zId<>Zc}ecO6cANFPxc534m~>;Gk&>KKNA00Z>z0ok|asn|NmwEzf#Y2t|OxA+3L}>
+zg^YC@sl?Sj<6u)t3IPsI8KtBUg%4I(B8dd!5eKoOMcZoJ$fDL8$SPxyJVaMlSa#C=
+z;qChWU5O-Vd+Ysr>IHPqJj&IX5kN%cn)`V@zcu^!`Th2e>^oQ8#Qa1NWJ`*o2)baT
+zq+q!R3kwqhbCVE3aohehtv;mdv>W{>?zDIraz-)|mOx5c1|4q0h8%bO+}+*X-4|`U
+zbtK8QrFtS-3N}eMxre5pNf4CzhyQ2W{<e{%@Bja+1^7Pio3xTnEA>PA4%-~Fb&pWm
+zaKiC3MhQhk2;m1VD3C#e+D9lwux%tsaa=lPdS<fstz8e0Y}ajV+g2a@2ge4~dZ%a!
+z4GkS2CGQ<k{<G1KT!>tR$VH4?_M(*iD8&|~NKuGA3Xx+dju?tFhT@8rxT7VWXo)wr
+z;)f-{Xh|em5{+$Qi5gpp#at3Gmt@Q(6>~|4JRzB6KL8L7mSpdcpxy(qNvR=)SPO`?
+z9O`~k!O@fB=t(7dQdJDCP7J%z6B;XNz!F383?&dP35N*lXh=@MFHd)lODV0YxYj)*
+zXoII!vw}H}Nh?vJ6IA&O_kRiU^#~ZALL71w4Jjs&1n{yIm#5Y4=_YQLR;)~baZ_Mo
+z@!X4pk=<Re<whLIN6+IOFmY#IK{PJ4-?pM8Fcd&t>LCt6ini=)>xL6;-Fl>*To)D-
+zu|nK(5?yJ>K}OM&sfaz9z>;AxeJ<9&6=D}w_V3ERkg_4X6gf}8z>-cem0mHGZZVb9
+zVl8GlOlA4KY-AQ?L;-6UA^Q>A2$3TC5sk>#u%?msA{STW;*NY0c{lPy<jcq<5P2tZ
+z2}Qn${2}so<nOeAK~z{0)AcUIhSDtZr^w&1pX8&wjQldnkz&XvXy86dDMu*?`;7qR
+zpk0wS0sacdZ$S70NLj)aXET@`w6H~bgyWAWy(Jg`ShA7d0@4{V91*}q0QltY%9m&e
+z1_z~uJM#1fwpkqU0pLft^9{W!7txSs1yBl%{FVKHFIEq&dqamyDat!^uaGFOBA43G
+zSVBe21sAzM5%YbK%R!mHmieg2&x?GUSb%hwSio>m#J3Vp8>fZHu*4D3i>ODeA|?^t
+zh(p8@);OXQv50tp)po6SSkJ5nB+t6EiFk`R#eT05kJxV?ag28LA}%8YM%-h+JsXRz
+z7y$Op{f1Hxr?mOKY=+}cD4p7Fd5V|;(%Jn4@2>F0GDN!vnA+w~%6x=7KhUdtd_~>?
+z;3DFh{ead@(YjM~@=Ju^i1UcM2w@RIhaqIB``s0BU&KWbk3~F{aa_i}2!RP0Sm#9u
+zN-SV_0k9XbP3#BUl@<>?YqfX;T1zAziaZ+q1CqyNnpLNzG4v+3NyNcDZpS=sfnkmY
+zj@^T^!^WZ?#0~H>eb?v1pu;s8!NlE+mS+cl&nR_mR~&d00dULnM~62PJmWwx#7}oL
+zst%4M4ZhdDbkLBV{bsaeKk#rx>$(85<F_Fknazmj(pc|hJe0A^W1Pn!k7XX6JQfKU
+zYqb-L*Z`~v|8n8KJR*yuJ{@Ov1U9qv07vg|-1HpHZ_})qFqPAr!0Wa`H4eK9rm>Ip
+zg<8||m?oZu=zje-B{8?}%2yUWWhYxZ<t2-$dd|xz`=o0X<Cz<hn+lt|7oj-4Qgy-X
+zp@A&u<d%yhc|OuL1H1rBH*&8C!syWv2I72?_>={ac@<R4696<)%JpjpvURGMTMw32
+zzE#h`Q<AB6{#1|>#Pt*9SSP<lLXR5jS8$_ZfgatK^9$WC;ZhSAYiYre^oyR1i@Ka8
+zOsis>R<OBME1lh((?{bd97p2L;>dCAI%>Pt1FY2wJUfBvgGUcwZX<t#bqpqPpLhns
+z3EHya$vWCNiRjzY*{!8(&+uX<zp1e~sUBZ^pb;25*+r6d?|d@BCvnG<pbF{469ZuE
+z5ScyT&0uejq;$zH@N0+t`skCT`xP<Y3jpasdDZeh%8_!crQmSrQ3K$-$ORO+Xd>jd
+zrS7)}jC%kRQsg(oTo{<vlH*~cv@dm(=6L5iddOg1fM@5f3}7S~aSH1io-ZR_fp7wN
+zb@Ehb<I3MGGjnzq(+t%|Y2NE|tg%hAULy^WIU*YSI%b)rw*87sy)71SEC8=}f!Dh)
+zTnmKhsE9WaVpHmVkANWnjszFVwB8Kk4q$$6j13jp9Ep_0QR*?7YLQpfr^F192`)@|
+z-15-nJD7)=OJxrEmbDm$ya>QH5}sx)7mdvsF;}XP6n1hNlEjh;zHod1rHN-LOFDpq
+zZfM|%M*!yeT-r`<xL=4ZH$a-As~7wZ!UM8Qu@<05yLn8o-#Cw*eZ6<ktP)cI0%rVz
+zPD2~rkKNx%B}#CO(<KCL%954_B=$huFo)LYJXF2oFD8;!%E%&hA+_KNkA=olY;gql
+z4cpLIO-7fU7<9eK?6i1QZ+_<C3qL~aFhSJA7^f3GSStofSZi#pB_Iv4x#^#2r@_HG
+z4Ys@2X>btn^YIhA3#|70MCd*KhHPg~JC4R9)XsnT@CIi6EJ)TD(b#L`@V1Fd4ex?K
+zHyFEEG}%9ZtuH<RfFHXi!||b==a3=PLls<WIg$Vj69HhK0IR!kKo`dcb{*gd&Vn$H
+zYAB<$5?gn{Qx@|-j}rFb8%7@9WQd?4G`T*ITs_c0==IOV{Ju=A#!0Cc6Qqx@=ULJF
+z1!2-MO<-t@^h!Q#WX3J$HzXMTCTOBUDf#IB3d}8#ND^S)37EQ0K+5iFB#Yz>e@P?t
+zE&ZGjrCgSAR%wDK3tMJ12mrBB;ye=Lz>|wfaAi%W4q622CgtVCkKk{CYFGTpq)G)9
+z3ZPl4^;9Ynfr%pqgfbKqv7)PQ#eDbMy?p_(A>Fb_ln@QMn(MeHNy<0n+Pjt;3X!!_
+z$(_|Q5t{C|QVPW)Lk5Bx7Ngl^ip(Zmpw<i4&EqoUMo3iYEEe;?B~J3<;WK<;pcr{D
+zp<A`QuXux`D!9~x@vJ8jyTm&3IZ7ix*E$XTAcl+s$3Kwb3smP*4@3Xh(@mHjg<dSP
+z%4je=7|+`ab;95uN2wR-4jy?%xc>?$<O5+!Kqq$uF%f3vWeBKcmPooQ?loFs1A6k%
+z@ojY1G30CL6`s;+vGf6MJcMc-5~bX`7lGI92m{pWS)w|8g?juIzKF<=$6bJ>ZFD~)
+z*>Cuem#e(!s<nMB=K>Nn2Pg7bU$8FoqAp9drn4iZBi;p;I-VUJ@P@SSA{K;UZySFH
+zjDve`PLu7?3y=?5%Q>T7)-PWP^=`I1DJ;#i(*u0xWoYT5#r%~&5+#Il%O*Is=od*R
+z2I|J4)#FU%De9dyj9y1|i+Ur$>z`&u9<L!2we-i!8rB1LyTvW-7w{se(D2VQSOU1)
+zZ~6Ac`+pmq4pcLI6Y@A5%JCDEI4F4>>~iYaIO<;ulI0>g$FxU&gf7U$sZnMvC8Ghd
+zJiH>u?IZFy9H^sI1Z8Zdh}sQ7SVp3ZW>L$VP0BD<b($kjr-AXmzCy~_x5@vgP#q76
+zSo=%Vtjk4WxcxMl9qKzky@vz2jvZ3a-U^zBV2FiyKp(f@ReOyv+5B&my<D3-N5>xW
+za++%s8u{=!S2YLWW%7DG8K{m!PbSK!w*M|G^|fqt)vS@ujktLncoGMi$KjPJ8_aAD
+zFDN}C6YUo8u6l;JxIk(}0Q&&6JMGR@rH1uES1Z{4gvbo|Jegv$VnEVERJZ&>I}olA
+z`)Ce|4IWnn@FxPYMdZ(=Om%@hVjlF=IfK~@T5v#+c+@eCJvln6067jeb$$V72$Ei4
+zV4yAH5R%Q|4_C+GWT+T^&+)Qpnqnx41ZtGbWVBCEeLgeoCXF-PVMhQS$gY~HDo^g`
+zdsz9ntz027ZI$^B0esilLSM;H{W-<Q^_d{aVtxvL!{eQ+BP!P_hF{q)Wn<Jwq|hRE
+zmkq%ObD7y38nbjHJb*8B!4wN5W6qcH6eKVT6RLRqiu_>{Mi@f`1W<?g&r5{v7&V0z
+z+MSt+YyqjKm>H{sR1+s?@L-uia~@DiBs9*!6itM{tq6wNlu=~&77~eF?&&x@t17Jw
+zHT3c2oQ5~UACuo9CUyR^+{Tz$(%6dWUFKVM^Idfz5_(GEkgbU3dvuq*!}!?U2?IY}
+z@Je-?V_<tW!lK=edhiBm|G1GddS)jfnVPF&#GihlW2DAShNBH72zU0#LrM)h{KT%*
+zlk8@L(?6Tk#A9>$&$P$j)AFBxTK@B2G=qZ-6zB!p{={&>FDWfAzHCXW!?lH~X2Fmf
+zq34sNIUo}9=z_Dm3cPgk?pX~ojP6sN%fx{NW;T}4l@_|_!Z8F=uGmwN;T4ZZ?T{`X
+zpt~Nx@i){|Q}*ok5@7OY9;uRZ=c8zzBMY!JB9d1*7G+Ti>X3mNNa?&!9*%2_2WV}S
+zCdygF&*?P+Vb7;n{w~X3<yNv~U1r5fw!@XIhsgzmc14?>{<*n^T+7OMcEvK6&@vl3
+z0c2<XN}lxVMoWsx{B=G6%pR^yaCWb~t^(z=(-URXn3N7zp$py_<CdlHJNE?08**QK
+zAoG`f;b<w2UKb+mH3dBDfX@Vj<CQ1^)vsoE3#lDuu#2=jgttN&$#j<Nic7r|DJ@EM
+zbfS(lEcC7T?zemU(qluF8aiA<sM&O?EpRZ|z>Xz$U~CLz5>4&H!oG*eP8Rgdd+(n3
+zV+}QvxHP0h>HLVQ`(yjaBf_W}tN+qs3EgvIu98c1W^AJ>EZuX)ZP+#)%pl}3rL2P$
+zterNvh6M8SP0L67GFjfgTSI?=p?9gbJPGwVz2os@^*CyMnXN!)YS?+YQTdFP_rzc^
+zs>_8dv?<QCEGnOC3C!K#;G4OTdc#-GXJK0NQ3BW<#QjoOZrZ3SVA`&tV9Ex|$LPf6
+z<wat9{Ey_Mxcq-8mL1%yn&+cV(2!NY(@BtY;ER{7!Nyv;>+L5b-)-LZkcCmrJCQ(J
+zaF!Sj^7#d19eyp6{q983-TMYtO(%hJBg6{PEWz`jDWij)%zo0kv4J#;Mt;=nN>2>t
+zukBW6=Ny5m)AUP4oQEH785Y#L0NWlI0<K{%!G)ZW<kH^7iXaG&3475IesF(;CiIFY
+zLpi9~z2gC8z!^qOOi}r)i~w*fKRV-{-@==!mys0u<7I$=&{3iL{Vaa^?cV;CQ67h=
+zqG6iH;U*1FJLGY=EA5cS;Yp=nh{7eMz>1!&jU<!_Ah)0(-*uAOzwQ7?!_!Z-#fEe;
+z)R7h`na|)ZA4TIC#SB$Z8D2Y4q-uTTlOjFS%}VqTjATzr-yr<v51&?7)p1F1e+!B0
+zo626%?YM~s5W5x23f&Om%bsqGtvW_!09q9dS!HawsG!B<rPn&pK0K7;F~nVI`lGb}
+zuXK+gU?vHiBzIV0S^h2?rXDV3a$kFtP98gzg29U>oq9sm18oZtaz6_?xx;tlcQ_-1
+z!wsb~TyCrQq9b6xA_x{!qDZGW1Mop-m)I%5(YPy>vN151AjRKM5t(g`L8}E0z5~_C
+z%rxN)6fLVR^-)9vv}Yb89$70I@g|Nq&)80<Aa4O6495jb{4DWTjverHVv^k9SBb~6
+zsp>#08`5gclWuu$8z;6~=6fS&txoRn6LQhB`>S?@HrS?RnAf`IXVRKFyM#9HKdd1#
+z&$Y}?X!)Ymuj@7M8Cw9ZHqf%`GT9)*@7WKQ$pd~X{<JygaTx4@1#<QVNY*pG7|c_*
+z(dR8+4UUGq!jwD&jl?|Dgj88jXh4q$z~tQ*L;GNaF-5`^iXdv7Fj=4BeU$*j858P%
+z(*j%wmB&bjqR^^F5{eFfG8Ge{po$iHCsVyF2V1q|#1|DC>ULoJ!x|c^mex8zs(Ijy
+zZ*IX$C0I?P;s>Mi+-Nd1;8y_;I4SBg_lh1ZNAIqJ!Gk!}{<zYKQ`#k?Z7fFrM^U1=
+zrwCLC&2&-#rU&DVI3r2w6R}t0bJSD;Av@mZC}pnw&*}5xX?f5FNJpGE#qA`%chBn3
+zL{e*PMdzeM#jj%+`w%Nl#3V@4766*aS1h@8h<pmc**T`YZ-&)2i~sDRAvO#QBOvXG
+zhw1ys4^qmeT?n&p-3gxHOxYv71M->uPK|BR>2FWMw0dXu`;%r`2T-vufcL0*&!`M0
+zd-l9lnqChFkN%!%PC60*2+r2l)gcWoDJtc7oDB9!(Z`-$QA5R5GLi%gZID@tn*b0P
+zBmP&;;f)}{@r`)eG)*+blAhas)LiPQPoaAoXR?!7qIW=E!~Con(wF+CHyLo&06q!>
+zm3dsB`3Ew;nXK#HeGN8+?`f#p;wQZ_f$_2dHq?j%sfGxHCk*jugo6g(nJi(jq)(@b
+zPSHDJHn>Q7O}}_@n&91xNg~&2&cNyo)A+;YUa?41g=2R2I!5%GXA5&o@ZCw5D#u%W
+zL_#0LV!}>Ds4)~Cnot0y@J?lXu#RsNUpSP43KWUqQY73427AnA@3!*>35JmJcDxY0
+z`M!CetCUSJ>t4rT^nhLF5@Q)`Gy9CZU~f>9m6l}XVgzAr+o7VrcF6`+_}Ki`c~u$Q
+z8Hx~8N)QUI@tsw70whONbiF!3LR6dIxWQqxc7Z$&XVYV_y*l}5yRF)eS8k|71~)oR
+zApx;}XX}ZA-S0M_+b8IjU&Ptm&`pT?Ko8YeK{|*F)00jv8{ql1Y-4ckJKd&&Oy0ip
+zjfyPv1f$g(&Wizx<qDBr%xu9*VLMnpLvFoN>-x`DX_&h!y*3kG7(44XC`E!wMcpgy
+z-E_qSLQGQ?lUt&Il7Gi^x!}^~1v^6peT;mI^d!Rt=~*o=7X$F@1W6uaL(Ai!0Y{t6
+z1HBW&Btyvapk;!(+7N<AM@OiZqlT1>igvTnL+{>w3wH+2i>IFNHcTEor~G+kZ#I8(
+zS*(JmDSBFXc*pWt@mHCC7Mm$XY}ewybJz1UqT!vLx;b5&^Fvr?uIL!nEIAePVAZxr
+zRF<9_2MyFRTZ&ZeHJy6;?cTnC*brYKNABG9ar96FZj=fU7O5OrS~7_+sFRIGG`V+#
+z$1zG9bt^;D3WCYNLWUrdElH?@EhC~DBusXc-xah{x{E2>Y6_ysGN4U29bBTCicNr*
+ze3NU)N#bDgIBa*MK!f2=IxmJTR*XvEC~t<(92>3>QBi%P2UWT-Rju-R>;y4{%(9Kd
+zVc9b6D`e6Sv%!rW5lo0RH2fB!m&TxCon28NBoE}!{i$H*BeBi#&&8Bj=n<=poi|f@
+zJI16nWOv`7S`9FOiFmP^u+r7Bm)#pLAOi3vshcj)JS)x@hj<^|ci9HmMyCVirx7w(
+z7T3d#=xQ_30^XGlSFMN+r5x;wc5u+YWeIqH&_S+y_uiNhOFTp@i;(;lkz(Sva4$?(
+zLgx})i1x$%myYE?&sXD=-Zm$M-Hv>3w4iQSP5k_$Rnty(IHjCQAz=0)0J8bgI)_Ye
+zpMSfze`S=9b}&P_;hBq735;$uvpF0zgE>*xX)-U2-9oX0Ba*<N`~jg&fzT;?1;rwp
+zD~QQr6bz9Z56BsD71*UUgp+P21q#$YOyY*z1NJ02Wv55LSg_*NevNEtr*+kl4N78^
+zOUO+(8>hIuT;wuvmy5dc-89mm7CIQ}C3?#C&?V#}_Ap*;6H#>Xq)z3((iU?m_2!(~
+z7N{oVap-kIhY{Ha8e<Ls^?8tvBpTV-Cam49Rybjf_cT#&k#IJMdsqTCXG8|tYQ~-S
+zqjBGK02kzxeN{|Xoa?7-(7M<*9vvp-WiiG#k8>5y!Q%it2VVKE<zswO3gDKqJ=CB=
+zkTfHP?jN|#tXJ`-Dx1U2y<eMwhp+hsugWh;8Qnjq`J?+)GrW!a2QvhbX^cPIn`-j|
+z@Eo{p0y90t>#VYA(#k5#<B;8xSqgIAW@(_VSR-uI=O7vp(nUaHDSQV*vb4B~V+ec`
+zr0j-V=Pc!&2Arv329Pgboj!Y)^_URjz{007-rT1uoXJ=rkH4o3AF<qsmUbMJq|w+L
+z+h$HG=5feoDG`q?gf_a-CcIAHz8B&!;m;(6?0SWv$xY-z0h2KM28BA)b5VMhs`u_=
+zZb<}R*(oy9FrIa9yVyU@E}PhFGv&4h^El*zBL)yQOR@$5(~T5DD+zQbyYNDm1VLzW
+zFP8#Y3<9$`*cl(Zq-_l`{KUxh?qd0LeqX(`D|5Iz2$JQ6Y<yD)+m8&}ty;m(-O?nF
+zeO_TS?354^jdYXL64Q6t+i$-@!Qie$*T<jG&C;_+_Yu*|0Wq3$w2EF<;COaQ0v$MM
+z9Y~I(Q%x!8*?rIm-|flaf(Ls#pyZzZuf{#W@!i}L%*JC6v}DI98qbNw)k=BKP}F2#
+zHBLTLXWw22hQ&m3L-ZcpuW0$3`-9;iGDhbB`>(;U>EWHF>z8{u$!LgTri#8W8m__<
+zgq6VG;(Jtu$kMjy_-<Qpsp{U&C7H3y^&q4eZsVY;&P#U@=oM|gCP5}zlhF<yf;DIe
+zna|GslI2z)<pCLLM@i_A&nWfOJe#DjrNDB5hQX!E;rXQX@e0bA&((LS-F0v0`)ALJ
+zU6yGr;}E~w-GLzi62R%fyH~C`$Nh(DYNp)UJ#UE}!+CrsNkf}&p@`J6CKo$wU(ZaX
+zCx2yft#jhhs<=UkoJMS)6oa?ZV_&q+v=v;sWIhAr>MzSjlwTLZ4+1DrXIg#9uRmNG
+zDOQuMi$~rPn?k=jg}QFO!vFFGUryfVaae(dIwo=O9;H_=7)mGbilAa11kIT?o*I^C
+zWPn(91Qs1<JPg3xqAT3*2s;l3kc!4qoOG9c+e*9PGycK}*P7Quu=U(4*y&)dfwgF=
+zx03=io<tY%R;1M3*Ps((CKNb47N)R8(DqTK{al%g?Z!w*c1{kE5fx#W+|fa|q~Y}$
+zbpc>WCc+7uV(86ru`<7u;Qam+rv7f9?$?2PVbJ>oJGi$Bc8sWZHVLIL86kt&bBxG|
+zG)^A<y{$yX%_D_6^vUIcQf$8FAGi75{U6ortsxw^7Y40wJz3^3|6m3eJ~qo6rUhA4
+zU`A||wom{s6OX}s^HdQxAR9>W94jWm%)tk7e7zKS9>Fq9>2s)<zr^yo7xPz4SC#%`
+zGQ$;yFSOVP5gsYssbR&H?6i*1XL$J{V?&sa)-&9&A=HDkGcrmYNl)gZHHM=q7r8GL
+zc%$Qn%uq8?fP4m?BRN6pB0riy4rF@Ta_DMA?F!QxxEY)@k7}u}+}rQ<RZiLAP4*%%
+zys2Fg#7JrnRMM#*qvb=j&#}k)Tdd<^j1m{dkR`@7It(D_Fo0>pLg#%>e4Gh+&U!d&
+zUEN^MA6QID7E|$--MiWzUGNzrTAcK#1%DSVm{S%s>n}+w>$9QS&qbkICc1wYV(x2G
+ztf9H3TovJ3UH|Y_UTtaI!)#93E#{<OJ{5MBWOW*<)X;`I2Jw@6J1FWu1cbh$=jb+#
+zWie^lSdxVKfN`HQxzfFTVpJIuceiBHX*~$gtsz7%oVrLk1Zk&r46nf7Q8aYPYxp+%
+z4!#NvgCPV}(0>x338|w$DP)1dd6jyZ=mVKWS;i%{?9Q_HqB}E_*!VWNgy!)Pnt|Nz
+zHPNCQ>3oL_xNywA*{sSu4pzHhVp?!%15XY^QErdP)poT|dSht%;9SUIVEZwJU_BJI
+zjB>Vn!P|&PAU~G{SzZ73{(t2D-!8x792`=GxB8apX;r?7?jT^MM=z+uTpKTq5`pg3
+z+)h{rZ5nsWt$Yy)0UKs@R5v9AFA(lw(k`)ptHD9_twuwba}#{nIo?8!#K;w+xjP3v
+z1y$uJh#^oTp`E=WX)NWC+#$Q=llxcqpWOLW7UbmU{>(I;nj~!i=HLcpEzf%A0cQ8$
+zxUey)-wbIN@nWq&diu$vEdVcWU+Cpjqao7RAclG4LGY>y*y7-vAL6s{w!RT8Qhuvl
+zv}|EETFzLW3;&l)cNU=~;3j(;AF5;a6yEx`B;a)g8tT^24WUxJWioK%QpRBb)@TSX
+zS|&3(c4xfb(Q!HB)#!+sq603<sWR7=L0HN>?*s8)*w5iBG9$ca102PX?o|lW?y6mw
+zkv8Hic-Rr=2hm{TyvWl3nQCzEHuE)7_VX3E*rr*zpc}MPsg)9lv7lGz9v;8xVjFse
+zryvAjghO&q=87NVmGSSu-#~_WqY^V?k&f!ZvedtcTT7LX;^Dq-6OG7F*uFFloL5uh
+z%e{OBDIe`&lQ=vqW@;LXzyrM)jCJgQMgA~TZXF#6o+GtwN72a;@Y8pn|G<rR*^*`@
+zHiy+1ZHn>uzuvD%be*~X0Gh{G?5wnEOI-~?*hsFCv1dYQ>j#oybzC1AvNM#}IEU*h
+zKBX6}vuu^};Tpwr4mu=vhdFLdW72uISK>xY#TO(;ctg_GlbIDTgwC=Bw=DcGq)}+s
+z&yh1qRWLTZx6lldYc%?>QxR*4{aG<biCv;JVLit)Kp>Uutm0d&ntyV?x9J-fe)(is
+zd1|t1$r06R&0{@O?i)=>G7!d262Ya+{jTYhA*m*LkDDnkmsoGVcg#x<W_ZzmU3lT-
+zs<;CSBwcdvDHw~=M{zRpx>^r!So&6mY46geh=B#c=OgEpAOvR`nW|R2ULL*u8#jeO
+zPd*$M@=48b)U}pQb6hfKNq{u<48^!ZSw$MMSzqV5&PBU>k>2q$teKMm+Fm013MKvX
+zCNihQ@l1VmNNc#7^?A!9d>NgpHaxESZX1pUVPXf=b`O1uIzqAB;xl4C9uKd{E?;N5
+zzKcV3HW@$TKI3GPVoE?;<Jl-jcqayq=$(SiPmPti<RL`bOIebvUPBzbL$BP8-g9_l
+z4|d@&1#G4)**tj~?gK8mU(Z^0=`1eUsLvrwpGh_$(pJimUwC&-oM>b?%guvEwZUJ`
+z7D9?kO=!O^W;(Qz4a8xSXkTYKWN%A^8}d}rQwDY|vnA(g$J&TCxjL5EHeQqWOZLDt
+zw7lOSOAsw#w~Wo)^+RNf?C-ALjafl2sy}GMw{Q4iEVz9U2+O>#SXSYm3Dc8R@aZHl
+z@=?5Kf5DfbbBgA=%H0&p{=ZmXL3sYhcm}-6SA>?)5J|_$ft_6Bvq-{2@Z4qcGo#+T
+z@xi?d{uNVdYJkl2;j-MUZJMS-bDggV+R`KK+&B|}V<WoCXX*G4B>CD=9)}KhWNQo=
+z!%>ZIV=FPx4b}Ovml7BP;-p%XQ#xB~t6I77vi6o(VJbK#(wv?Ec)KalDX3n`xa7=<
+z01+)U^M!4bt1+fNX2<qV-u?o5#IAl7)d4!k+{EMdzP!z(tx_K7#(ALh+Cjkw^@@V%
+z5cN>+K-ioft3cw;e2o3-kw0R&!~RyvF86t5&C;}-JW5+Rn}u8b@EtCk>=%hCq=jMu
+z@`y|k&HQs)-gYvcg~EijcBrg6M$S4f<sVBEmYcv`keU;;){pLAKhd^&^Ehx8G&)9>
+zll^a`BO=AU#vRiqUc<&OEbSG8n$#(QJ9B3KFs!w`T+r&(<4)SaL3guo3v+JS7Py_9
+zj?Cj=92f^d62Y+v7)?g;g3@4O@Ov*nXjMT))7~_ffopHwr{i$bOLqyw%Sig!%7Pmk
+zhV1(v6(7MYF{le8$VU~5+^hA%qT+4ck^)C4Ia!YXCoJvQpCzP!&wk~L;c^JD2z2?8
+zp^Z*`=s1d3=G9f+mX!zBPWPK)8)tK>Zq(@XcWf4;Cive<?A%+%L_0Vz6x@e~8JHV)
+z55^fen%ePASlZIRScx|u*!*x$o9%$~^9<rY+#f$*tmuZ&0gj4N+%s|t-$gZ_N9x||
+z94hy*$)shY(mNlLwvz-MkQI!!$r>k~$)Fwlh>)f5UEll0b^??Ns{Ky$TF=2X-U80v
+zV?VIblHyh2S+5OD>Segm(GNtO!b)^U@3QgWPPe`Q=5R|GJxOA7REju+swr7YyL?`a
+z8#GFOu2=A3FJrU51uWN)pKN_LjnPazmeKKE%j8Y;faMxkquq^KYXQ-($WCHhv2t5u
+zAL|#Sbe^Q%{D<%VzkG1JD=`&tYscVc4)#O2ZPb&737M;MD@ZVv6g(1stUIQoV33ZK
+zR4^^pE1VwB07G;<`(YDhcFq8`4jlZPlU2%wytG92*fyeTD<(S&|7z!jwU^eiD}p%F
+z9bj02$3?^o08jXnii4h5Zrl?Hv#TeA>+~zt&AQsqNpv{z#aOQrF23B$iA+O-yzS;b
+z2&27%z7-xC_!udzmrPVOIL$)esc*3Q?o85a&26{9=KR~gWAT12n~&q%9h5gQXiR*Y
+z$i-MQ(?^~{xP))Rk|7ZA(&~Ng$vei1Gi1rnn2&bH#I)ukR;cGP4)hSG$zZ4Wb%3_#
+zNVXbT(~(&$otO{8#%X2_RzIWF(HCr7V$IFpV*aa^FY}G!*$!CT8m~-;+jjJi?V{ce
+zxOz3}>LH@&yWQ0jjtluHP<w)-@yM(nSV%;hzxGmMGZ1incaJ+W4$?(rcD}7fBxK6a
+zR^52^%8%LT0}>$-s39H-=Y-C;HhIe{RS0|Yw_{K%16*2hiMi|&AU@Uc#R6M0UuA2p
+zSW`ikIo94K{LG;@290+@JLP;h0Owo8voi?;Iv}{0(mW_EW;{_iyX%}g%rJ+CsrCh5
+zzJl}|y^I#s7^*jV-?zhaxdNiPV}98TZAuDA)yF#1?c5!C6CU_*!}DD*D_VxiTwg>_
+zh*G61G2$Tos9!0D{*zrc$C)8OhkJO}lBOgJj1v-5fK-KWcrYtj(|X`k$}o|H(b~<-
+ztf3UUT*ZlpVJrv@8!a4A-*v;n$FYDdXIqntHH1(mBY`MNEk0h+z>`ioq%y$d9Ou%X
+z38O29CvGKPGhR4oXzsPo-y+|ucx`zf<p~}aj$2kIoGa(Z^uw5e7zKPJuMh!4L`VRX
+z2J@zYO;~<$?3kl9veT<CRxAz6(rXwIlj819%HFjMDRrevS(?n4k75~OpfgCEBI&Og
+zVn2l<{By?DQ2^`uVDEbQ5Eeal1^VaT%WZv5LVUyh(7qCy&kcRfB0(?AEifc4y5931
+z9foLZ7Z(90_S(XNqto$dfz{^`LY#c|8?h46dW~@Fi@4w}M73(WI0{{^dJ%=peTb!!
+zpT}uLLueS+XB=n`_EFKahhcHXz#-v?81hD8CO%^sptW3)ENj(mxyvu}AuZI;X}R@9
+ztOb|{onwmUG-mjrK6{$n@Oo_(Ojo*bkYOzU9tRn#qm>xIxz&-m#4nRr{g%LBg$mTy
+zMP{Wg*mJ;ao&;k53qPwGmVGvgb)C3n-#l(H#T0K-3+FpKIZ&tYxvPk-BKFFBXgB(#
+z6c6ycB0LST4`K+z!Ljo*UV&oWEk=!OsG$}0DJ%G3bRTJZwDDGBE?(CbEayJ*S3cPs
+z;48cKiR4(>=QQTlKD02S$e($NOg<O1<|xXWC`FG_%qXwm=pHy<b!4tm`2Vp4B`|D-
+z3KpPKB@p?+oFC^aTc$(a`<u;pcA6ZUjCEPiAJa6C-mDf?**p*QfuuAg(45;+r#s0Y
+zDsp$98|Jh7M`rO3>hsziQLAf<i?(8=wfUfP@Hvg)gloMm4ge!0;v_;ipJW)k-l-j#
+zOLXja$_f>bP6g>?HZ*XI=KM=+zVe@m7M`I&4Gr7_&8J!zr>F;tN8Y+G_;zPnzOJJ=
+zEtZ&(X)L%4)!TBdKEOOfxM35~q$68(g*L!EM0C^W)P{TYV-6Vgh`D<`BupYWoAhy|
+zH8OB7vY`@Om1C^v2Cql%A+ISDUVK<Pg=2U<zU;kGPUgGhuJSE4)k5sI7uW%rZ|L1}
+zJa4JCV9#`?5gjWlJLVwIjDz5rH_t!-Z*0$%+pr!iygI<_+ySC{+{e8Qa)pK;*nG3I
+zJFo|3a16EMUu;Q&TxCPhf;dK@h*ITL`Cva@ncx2dvs^c-af9wA7{&qqR-^<Qu)GX~
+zqk?2$TmLNJ`=>EI*Kp;v0F!gq{M0U;`B>!}4l+>ge<fygrL9*64!`Inf}YTrZ}hUj
+ze1ohO_6nvW>yUuVLqf8Pj%;H5H^o^$(MB!*9!nVm^DVS#FQO}*nEa-wdN&$1-MfpG
+zaD}uIt}3><;ayD>r@Ead5j=CmK&hR_11I*22^|pa#o!X0d#@M|bQP0apod0_K^?o%
+z4`yLjLn7t;LH6Oxj`(`yfg;j^%W1}N(45SM)l8l2vXPBrf||ftI3b)Qi`*Xwb+AKs
+zR$KEv!2nB8#4)g)S^`R9U`VgvSPZ@%aJ~YY(1<et77Y9wfE)qUF?d_iz`(v>zei0m
+zje4)NGhcI9BIQpgv6ZYEf!YuUv#xFe7(J+CyJZ9x61DUz{DTacjW7E0Riiu(l^a6C
+z=F!HchL;@yAv7@@cws5@nJmY_Y&2w8#ND$Z6LZ6iv!qSwh)WT!)>@!>7QDLBQR?%*
+zq^h53B=bSWiDN!QUK-ClJ=c5_<}*X2&S!WIyY7^bU5N=ulG0SZCconKWM=5suC&c_
+z*ws5r_S2@VmIg-uKVV%a{Z&QSs*k-Uk4$9CK+o8afXze_q(o^1T1Cs~0KrLdeYhNQ
+zq%G_F2d+=cs#lF415Iwra0g|pZn1`o33!Mhe(p>Ry_6wznK^=s8IUASbc)%%twh2*
+zv+Y7C@(ww7T}OEiT?V01uHw7BkB_1h4(p0R(THb0M!pFT%-0J5W(boOkc2=3Qd=RF
+zXHkmD=xDS;h<OgX^2;bM(6oC4BmUr5(#!m+BCIN9ryR(m$WKGShb)jebXcHlujn3P
+zO`g^%rgUH+__)TwE7!8>CVW_PBjl#mtGH?Yfh-R0*6S1rTMpK8T3E22z<~+?`*{;l
+zxfdZitd$Ll7M1L$6>At{zYU1diwJ=h(he^uoV+TzRQnuuJw}XxuppyKA{D5ffq5D6
+zFSM0gW`Xjj5>w}CKUmAc`4ODHOGg599J)6#v{FLRw5=fnYQsOI%_rPo@bNq>c_7)R
+zm!@{i@Mc(D#xrwRT<7)|D>SmCXfvZBfae{UXAw=b;@x5!TZ9Y3u!s7R!O}dO*u#GR
+zD<#i6Xt6x8rZk6}pjFc~Va_TgztiPEd58ox7pE2T(HhJCS6nXjpjKz~fzh;gCzV5V
+zgA&FlV^ZG(4lfE-YaIPoE-j4_dCg}Mjw*x0_FY3Y>n90qszm39Waa(%G5PVM_}uvT
+zX5}<-R87~u1OYnGpw5Xj)pP$9>I|<+mG+OR&Om`%VAydut)vyoz#gQpMCwFZph|_r
+zL@XeY6U9&$UBPspP0VRs>d=oEX`@;a_EySvxWwlGhS?l!X=9O2V5n1r?P?gE)ufz2
+zL-@48kO9i+rTDe!Aa@MXc9#zqSi-K4$o^=&)*&D6Pz+fTv1rKmq>Hz|DY(?>?*T`!
+zD+#t#;&42Td_@2xlyn9M2`D{UjttRRRPRJlyBC$)wX;vx5=V#1la>G#h7@Lx?X%I*
+z1XbE3-AUnCVCaHW6&0;mLEm8=<sGQfJxJ9P;NOF9y#T6tl=liFf3wmL2SaY=;-<O;
+zVoDyNzac2ZYmjjV<BEtA0iXne-Hz@#pIt7W2du#FFI#^Oh@0k3De2->787?2tX25U
+zq<|VuLI*wiVu{Y`jfl$asNVQEs@zgX)d!XUy@?P6&jZUciH7~gWR@7k$;1M{8odCj
+zP==8Lh7>@mP7xD&3C}M?WwQ!6wbBn=lAF9U27#&EQf`@~TnTneB@6o~Y+ZB93N)lx
+zCYpvcA!P3M8&FU+yH7SMz*yOk;JF_gY@F3RPAt*+8AViZe2)J0dqo|6AS6I>Xtj9^
+z@R(=3wELc(yYJ&V2b^=)Z*oV$65_Y7w<9WYsV+s^=i$LlM!cUa%WKNTE@>TgzCNu&
+zE4oLq<Gy`(KX!Pfos^`4@)iQ`##i14SIH%6DUFWt3y{IRnC=X2jLn)s1i;V}3G+2r
+z>xX>Ar@SA(fc-k$kJzYWNFg^jfM*`DwQZae3<Hp0^<3?S4y>KsZ){IgCTt7Q0{PHA
+zZ?4>Co_f@(HL$Wg{?+c^^q3p#$oo67Dxcc|Xr|MEc^stPa`5Febse;`AvTW(c)peT
+zX|gmQtBZGFLHV*gDZ9UZ!9$jGY?hXHco3=c^j(mgrGfZl=|uNiRMWUnu#^cxmu0H^
+zjb)zD|BB%-Gw@cz!TL)b4|n2kCJTn`yGaSGf2={#{U`JEdDU;!nikR1N5@VvA7*Gs
+z5>x$6o70u9S^R{aP`#4S1IW76xSTm8`%S;WI847mIzJiekx}K0tE0nmdudnGTe5w}
+zuN8t>i1T?fT9VX78{7Unw%^Q0)0k<qX=VNKK&#FJ)%DJ%Xsjbg(qcz9yM<j%jaO!(
+zO#6Inz4LByVE7J%Tkx3YumnYXyc$ux9wCI(C#(}odd@ApJzh@=jOet~(19YJZdw4(
+zh=)6dbqlif8kpy>&d|&?8ggxgY%eXyS9FNTB)+iN5lKTW7e~$PEY{VHuJ3A3Yo8SV
+z9fx@^o?h%nqkUwOGQQl)=|w}X#tl)e=*~lEY+g?}GduTW@tlM#ryG0IwHmQ?_q=85
+zTD>{Ja?zTIEqPLFEmRrlckOl3tUQh3*%2MNcT^r6iwLP@%ZBJKQ#N%Uv9z`vdvWy9
+zD1}uT&~RE0ZMrt|(b7+g<_d;Be=#&^(@uR-VIJzz#mdaB#}WV&769<ghi{NzctOPS
+zxoR=YH_>=C@y3(il+&!=D8D&92bC!}M84o7F{f7JF(EX$*Dv*n+xCKu0L1oP@%N9R
+zSl-Fw9shF&kKcJkkfC>p1z?ilV$CR+l^ELCi8Pb_JOI5lETP({{#Sj!!k-ZKGhY5}
+zQ7|Qr)WS>A<@Z=dedy=Qud;ka>6?7TV$vnbIqsQ;c2)8~T`DMD&y^mJN8k*A%vy`)
+zw%iSXk6i7CPY?m<nwgE$yab*L`<QV)@tHm3h+0g<)JDR6N4*_KwE%2kFP6RAfVMNB
+zKJZo;Sl!PjmL!%G7TG606o=LtSpe6tj?t*ChPrCT0Nm2x8XjeMG;$|aYJ3piQ9@Oc
+z$JvLs_p$LG1M+pG`F-ugFrk7vA6DbC;|J)iT8>P##Go=Alp~YQLXydc&FB@`F1&a=
+zY5xhDvV1a)u4CQ=pLlE@>X`YPA}>~vkK``l&Z52;2YJbdh!)sJEv|fKHd#JzbI?b4
+zrci=ecP^1%s7kBsZSM>Mx5rGGftU^KZl~`LSgWp}EXGpne38ITKh@W}Luk_<VKw{~
+z=_T@~mZ3JVme=QE-OJ<f;9mg*{XOOw^@vg-U}DhYWdpFCu=j)wtR_?vZX-WtQVf8!
+zfD-Kk)DsqHQ4;{(VRd<>%ov*^L&fWHwg)C^Qb9C2yX^rDX;b6Yiru!+qEq{n&I*7M
+z?GwN}0NawvxK<LPx99aPm~+;-AK~~5B5*0OEpd^O!f?Xe_9|2E#>y3I`Ao-!?A`Be
+zCdJw05dL%ort%SF<vZ^?u|k|X;2bzZg7UtT?3-<u-MlvkfFA(6V+Y~t0LcJU?6IXy
+zU%{3R+>{xXiDmD4`G+y8VvULR)^{RSVW72DDj||1+*A%OFPhIqQ#g?I;SXIe@pRRy
+zhn0VGmOTvWzK{tIEeoc{cf7sFD(oj28|&O8WkkkE4MOCMbnq{FxXQIV-ZI8!`Vk6j
+z3+JQR`iP}UQ9tyC!jPya9cA30-q}v-_f(>xMhu~0!Um;=?qKMXeqU%`J@+Q9nLH9<
+zSjy0Dhxz80iDT~pp=~^}f&^AX_J!9~pah%CBTEE3b{V(~2<<TVX1h}Dh8birNiAp#
+zO5Q3(+Y<s|TA@sEmMXBo`G($t_KMkL*%h_MUdE2RS43}Tfm6{{b_cp10w7C9Ufx>+
+z#QgUnrB`cR!tr0qz;<GDJuc=Np@wcHuGY|ArGWL;=oGRFVW>KB1i~kbd)0Iw5ZVnz
+zSg~K%j*WEz!WVFzAD9Rh0UUkcECIXR)-WcKrC92LlDBBr9>TOQOmLPeu(mVrR=c{{
+zWU&@(f|hN*hHT(+*g)3+j@s*2M!r;)tmA#93qm~z#n6G+_crPr^}O<d`+(3kBbIJr
+zA_q+%zK~J12{&gG95h1;hYodrwlcJPW+&jNz*_B0M%z3gVTAS6{+Ci!g5%HCDzc%L
+zZfF21H(`eXgMc+3I&lxwE-*BlH?(^&H~R4|7$5?d`Y}SmdC>u$gaV7mVRHS1V%&=o
+z2iNG{RZ*kpa6$BTZYd_w+|gNMWG1Rg)^RN<aw5@iiBg8Ei7W})z*yM1tbDs{{<yVs
+zF}UZcQvx6cKZ?QV6LU@uYE|#@tDtSPWH$6x<T$x!FLQ!)t%{mrlay+zCe&KvZ62X{
+zHradt<4;*cnste?Wf(BI2Kmpt-+*))cwce3op;a)rvvu-C0sZt{FZ|Tf<NtjdSEUF
+zrnH~}wCfl91kvsRfEa!msTP>g00_yy5jL{v0a$T!g|>D@AM8cx5PkoIL=Qjl;~GPU
+z(E-IjpRs8st%k-cE?g{}YX#U{0MXqsD2x&N4X{VWP`hIg&6IOAaLH60EVr|XeziLW
+z1ts%>87Me%qVmxWZ(9HSSCMZAtpHdT+)o3c+ec)0^0({N&=r|&6cHMMq%+yfg)V4~
+z*DDpEcD(Z2h$dM=-rnwVrWZEM$=!skhSAwD=Ni1w&f#5BG6d(P+JVugyr&*L@J{xY
+zKLGiu&kc~Cj;e6Z8CcHrtg@kp!pZICaq?~~kw<2<bwlqZny?1e`Z02R9SQd@`0`bw
+zJPr;8y6rf>FJ@?)3>hsQ$V;j#xQ#-z@M0tB2`u^f#W-qQnrHlYDj2%61*K=9AbSse
+zhdYdKb;1<9n63ge7mgr3e@Cu|7i1<QMrmQns|8ih2!J|xWozL)^7PD8R`Z>0JW@ph
+zju>oeQt+0+{CpS(YNn1#xXc_1q;_&oWeA%RhO=GaH`M5u8WuME`#QFl<@^QKC~>3!
+zwtEeMo(v^6nDcG3tA>3#LLU=L;y|@g3yd2QDH?Mq{DJ8SegpFJDHIc~6AV_e;W6@8
+zAbA6rCx|<|+WLc!B4-L-=XjvM^Bow%hEDh$33FID1Xkjh5|$M$p927&qFp1aBC!FO
+z1-ew?ewyOe;2II7?r5#;rQA$7aVDg3Ocmi;i^$v5abU6!WxjzmEAv~6;rl4(WbuA8
+zHA>RFdxlT$b<G<39W38Qyz#-Lw~`IVt_JPKqPn*A2jANiyzZ@D?B9e9YBgEtqGtpv
+z(M3CoIN0FlV-EENJm!_<$-_o;r7-RXYW9x)9X(qrd0;(n93qvD)~W<S!ChXl-m7n(
+zjZ+ng?i#>`q;?M}UlELb&mG)Ba1R9Ij%&Mc1&VisO<jXbl-Rf?u(j9x2H}dDtazBQ
+zS2;z(9wMmo6P;k<)*2yexW@&q@tE|(zw=mGYhnT1qV#lGzJ%CNRAZ>^<RkBrzcREZ
+zrOjNnP-yn{6@Mug+8v<M>1#G?KQ9XR%34kZ8@9A}#$mP~?jX=Gn|0A)o$xcIpzzi&
+zhzWfm;m9vHho2xe3=tL3&pUvjSI2PwO`BG~imtSgAHYljtbSIOc6yH|%j*quH=toQ
+zWVM{~o*o?AD42UOhQ@<<Zf9rvhBLC|8XQTIdbDu#SZ?>$vj7FK-6Ib4XHw*mPtpC1
+z%`G{h*9trw=2<*SAP#u;K*@v7=CDu%Mo!5Z`r#U~4Cxy%T!J%wVgj<97a4Ny5&(+x
+z1qiQ!`ITv9ncsnK3NTJZ_8y{^9_-tNM8Y*1B{a$toAj5UC@;7cjZl(T&&W#Itt1le
+zEBZ;ub69cI^A3gZjx{A1dT<>LT+g=vuu);!@}4H%L|n^8Y68)6G?|~;RvwC>w9)z>
+zIf@n&khMv~UQlNN)@uTfX#|+$&;5)Pkylm|gjhbIQD-*ofIE=0BM!WUn9|av+;I{B
+zTyru$v5uZy&ok@zTdKhGZUeH6@Lx?bY>SXhwlUKMYUnOpt#+B34}uG+<4%I6V-Mzu
+zdnK#YEjJyu$0G8|s*ha{%;w8Y`s=}JrCi-HUuGoZzJ`@Wz+9{~>cgM~a>$0J<doAK
+zO<YIUC`Y0!;d6XBM+&+b{y5cSjXp+az6H-_2ls-b2Qvf|O?dw5pQF3l3IzZk(qbaI
+z8hwd^VQSQ!;T77}RY81+_&u=JgWI%=eYw(hOMGODN*t6+GW1W<{2Mhj8Y0uE6Fu?e
+zS$@3X>7NgNhY^^>fpi+MBo51t6u4Tjt$wl$4($ekWMRsOH(t3guM)r#f)p5TD1*#P
+z3PAP0I=8}B829-MNq>Dq#tLUhwd=#&=0jm9J_7b8)j~AT#-x=E;HjHy2(5*NPj{uQ
+z*@AUs6+h%F|I^a>l^tY=rrnv9Z5%Fn^#G1^7%?ax$A2!~9aPqaGKf3vjM*G8m4o%|
+zwO@Y6h{1i?KQH@&U<uZ%2lbDTcYcYs*j|o$p97KV(#SZol9Su28ae?|x6bbv2rxgJ
+zGufXQ>1iEbTRx`=M?dr&^F3VNflC!+NACXyr=wjs{5M-Z2j{K{Bk?C_={;yu(Icu)
+zSxXovsKqH7@ZNSySWT?<(fqJ8C4dVLibo4QC_$)DrB6mf#!^!CRTuFBPl53t@VBo{
+zI-1N<w>}RVMdBnTdu}9OkZh@qdYJNr0oDRf3(Tc+!t;f^WVHZpa8T8K!Mbz%7`4zG
+zM{aWB2cEaMj>`QT3ev3ir%mT<PNk%RYSkN+HiXsi)OEDWFBcbJhr~LPIdaL*35K>$
+z_s@|6MZDbW7ib4Wv8b#68h#iJA-wsHX>?h(^b&fs8s5xrDUABN2pJv{%-)nGiryFT
+zlIDY1sGscaa-(5d2Qx{tsUV$XMEBQ(DpkU?BWur5XJ_)1o&2UW?tBK8R$Ml|I-3&f
+z5bA0rf$(_G{}elj(PpH5Ww?+g4W)X9?75UiKgk!tYxxuU=lgOlkd8GFdi$GtKe#c)
+z9l|L-=Qc;e-MYNkRUv^=vPREEVI7$5YVIBD*JO>T$cfz!?tC)s^d6?x_Ged1o1gGg
+zZO_`39`Xm}>UBX<35XDAKR7d2?rvAi*Az~gXf*?;2R#CKAM+I_!u!v)9m6`-2v@h=
+za~C`h8*`3@5i-%BP3{H&Z=s&kQV8SpQpD&F_}ka-^=OZLj)pOm^5=5tjr(FyQqXS8
+z9d@yMEEto{<M05n=O3{iL8;*!mLRAzjH2-f<$|U=Td>B{O{J%8?9E4WX(BC6WVYQg
+zCxTaC6`W}-)k0v=HI%wtiHXwG{G#!s2N@`UrHpm<20v)kA82t72b8>JvSDT}2<5Co
+z7lrkpYKGMs#!Fztrnetf%m@^K(W0fu+-Y?(?FAS*po(v%v=dhZdy(rc*uGND!ALpG
+z|2fTBR=5CqK!v}#TOH?Ps5QxtfbnpA1S*{o!xb~p3aM33dKX@}GYsVD1MP)L9AI5X
+ze(YLrfHYtVUZ{72kIfw(n+Dhmq!#W}kG9;j{;5V-YbaQBQ@Q2O(6SW+b1l2U#L2EO
+zf83wryS?gjw1Daa@C5Lqbi)pGZ)RUH)32d*DTay7O?cs44s%#F1ol~{y*TKY<A<5B
+zcGV(YONyGq%t+FzLwl2}>+zT#H8-+CH;IFLPx>-^tYZMY)kz#~UC-B!3@x*drG-|k
+z(X@?C18k4rO~K$d=XG1WgEPH~5N2m@utE^17``K0wVDei8^+PQ{`GEt1EE~YNKCWg
+z@GBcilX7^iG+PM^n>R9}Thb6{5nEyshlWqI8}bBQwXY$TKBURe*4^t8eKyeIoVXDU
+zuQiB#uX=u~C!2XP)OppyooiVW)-0l0qs1&WsODe=rTeakLr~4DU<`~`_pS11ngbv!
+zPuFmd6_0Uv#i(bKq)qh|A_V`1!-htQru`vO;8f6ec4@8oPJ=+dbABT6znwQIq0587
+z$PH-3P@9)cH>}71H>IHb@Ga5erwNQ)s!^!z5zHC0|H727UI>Xv%@U8g27*PlGs~s@
+zb!o5ko9X7u3$N9{+{1p5AuIU;M>18~wAQJ7^11Ig>PnBov__S7D+)tFF&`~X2!KMR
+zxq_~ZVejU4ZimwnyPFe0qrOO-=}=WV+2Jx7bJK}?x<x~e(R#|^$g`HOCGVr24iuke
+z<3YZSoSWplUjFBD$-A`H0i<W87<uh5a*3LZV0~sUlapcr@`Zc)vcqOQ!jb~4M>~+#
+zs|B-<{F2#!k#!|1CN)bu-2E4~GmFw$heFNA1&p1B{Q~t_(P3S|5<_XzPfu3YwR_f)
+zCrq1Pqfz6?SB?|fw$29GP*tZPvn}nMxUUt2JXou2ml!LnT}f@SWi+%4&FQOI<}=rN
+zDRoy6>d?wL;t(6@e0H8-hvrrNP>85rv<b!TDh(hnh6t2nX1O0Fuvce_0|Y~h*?*CB
+zb?<!tUE{ehcc<2$HjIWj550Fk5H`@BMV!DA<^_RPA66H&N7j)mO#2k^4$S|`Ht+3J
+zMY?n)8uyJPTZrWIp~L`N?$BD7;>Y_~6Mov%8gfB#!O$icT1R{eMEn@!`vx#Nle{nP
+z3mdYN(YpG>OULr@kXLm`bds$up57!|2eR+1X9j21&+iUX19q*A(x(4K{kanJ96eK*
+zmO<2H^s^jh_Mxdkq&C{aP-OgK)hKnYxg9m3wg9v8EnfcceHxm0ITBycX?O#aNDz}L
+zT#2Ctxphvvt5T_T<}wPaG=aB|DOk&hPnn1xw20qpX+w`Jo#+Yoq_eHjf9T9;Ow<&a
+z$<G${ME}9bDkn|Ep-wyuNwSd|bEkE@z^jfzW<CB(sTNVyKXCTp6B-_a`m+kiAWSQG
+z%r;HGmhdUO+x*52+TrAJ*zTp?DgXJ?e9u0Mm8n`nYk`~&e)0Ms^reL*PbcB;kN>CA
+z&Gyca@PaT6X8xd7o{dVZ`n(1<*W$HT<FC~>;&Y<%HYRi{J;UOQM=Z|l){ZteQvAak
+zw&QixSr2xeZlvc0#`LH*?$!Jomq7La=~-E8alJZn4r><@l5JvnA`a!5;u-&qHT&W;
+z$v6eu6k*zSpO#y(*|?8hI!VN>j0^gMNg3SKhWiAg2M~HahQMKj8{#&xo!K?{mW#?t
+zD;ItHhKr1NLGZI2QJYrkbw6#>-xu0_$e+N?yL=$Mo9=w}GlDz}%w+f)hqouW3BW}+
+z^i(ARJqAN6#fVR%i0TBlnOEi!wPi%*JVFpH7U6|6TxB$<WqY2vsFvybk!n1^IB)|~
+zyc;h-E)?{raKwII!4ks@0`(jTW1K0ci$%i97wE+0_#$A6|8@jeIWFY?93~hZxJnw@
+ze(fbpL6-P33mxd9jCa1E`+A3{e!vMYM<ZJ9f5W$bX_UvoP33^!2ro;1ey6D%xXM*h
+zrE<;{Q9vN{JHT|v$nXmp9R6VLUVMfRbWp8Yq;fAlN2?Fwr1ChvSE^6N2etNWTveZs
+zO04oyJXBv%F7=-iwYTDPqWW%9e;Ssm03r_30G%qwUZP)h(OCj7etsD3d~MgLAEK6|
+zKs__USpqVng>H}}4qg=W;g^K2)h0BgXe;O?5$5|qik892ECGYipxiO7$%=lK?FBU?
+zIa5F1&>wVw%$_#&1*v2KN2iISe0yE0^=k6_+U`vVblx(XdE$|u^#v8`d*st*SB+Ca
+z5&iJ;I9zSU0WLh4SrVvu*QTm9W)pz$ok<+r+`aai^TO}M>NGZ$S!}9{*wj|Bsjg#F
+z+s3AHDT>;aC@R;YsNRU8b}Nd%Kzu={{R}V)wB@1^fT(5xrUYJPf#&QvZwOnRa4|H_
+z*+e-1Obgv0NgSLgXaq%{Av=a!(`mW*t<`0`w`(;j_`dSC!r92ez)8*|=Y^-eB6HhO
+z!GP7F#T*%&`I1r1!A<w;xpZ#rWz4e%OG_wMsMqjj(=;!S!`1f1*07k^OS5JJ!bdig
+zmb=%BbyPcZ9aT3Gm0d*jvaMgiUm?D5Mn)C<=A)bF*9Z*h$m%ah!CC@Io4TU2V)(Qv
+zG2}!+TSp@hwGXbs?$W+q-H%%)0cx8*DDPZDKM6>R8bM1DGxY;w{nW19`I0@SITpp+
+z^aWS$hd^<+xmmc~`wAgK=+93CNz4=}U<k2AvT%gK)GRFR8|#NW?ir{Qaoa%c5Z31s
+z0v0MTqIMMVsf_y5Ji}_+6u-t!$_&h*g8T6;%WN@h#%vqLIm4RKLN`bf2PX=e_YyEy
+zHg;N?IEC0U#x2*AIULBxPS<v#xeZ+V7iZkC2ytZyffm7)>zTV@6m$3zUqoz3ytEcs
+zA<N^i9GD;$rNxJ16?6U3Q)|%?AZ72aOvk|OdwGs(k;?59M;}P--c1HarjA}8Q<YDG
+zb@URyOsyP)^pP}xSczo|P#~vjb)`#<2FG#;Q=c>SEvutOOr)iR?0Q6z2so0kVK!R}
+zj~MN)q*kFtJ($$0O3h2|E*I|?!OT9k|Bmpes6mUj$qy6=v;4A-UQ12%>(M6qH8Mo1
+z5uGh#_^iSWA|CL119e=^8)7vlk3(F&Bo6OJ0$P@U<T?I9s8+0_qc{?K-OwAwXiW~X
+zzY{Ct6i1)twbpe8N2ZQm-|bZ&1nTHTSy{+2NDaK|9W24Hgn$6OA!nLuIi9)3Q#qh5
+zcdVcnKZ%WL<mMp@^+}$Ti5Pekh=<%=F8Kf5&OY`<)^;RJUF(6C2x>iZvShv_ty(d~
+zmQ(J*-2R())UmJJ#%bk2R!G6b3Ime&hzbVnv$TQ^d)?53>u4WQ9i%wA{MhJabyT?>
+z@s~gyy==hd3FuKFETjvl)pJ|9*fj^tO0`mBKLyJ<+OmZsNmGp?joCb8pgwQr%=+He
+za$1z^yEn+@1>sRylaRF*j%9;DpB+_N_w_{PM!5&x_O1W~>bzk#RK*cVOh9Ymoa0dZ
+z93=&51sw)k;_JR6Yq=ChKL#ta??YJ~{r`w+B~V8%w<L%IlB$m7Ojd%NX{wdx`TzQs
+z;mD4j+hxpi8oAleOnpxFfiR&yXjT%_t(HrhIu`Y4X;G5ab=(TGH8>w!z8;`<{zb<;
+z4qEDg#r`og+rA4%d>@MVFQJHm`Up;mte(#IpB<m9|L!n(9R3Z><M3lPqH<tQIX>l`
+z=m{G@vG6VD9Ms8kA*0sL0As;>8mZ&(lf^h>2Gip`iq5&Xd;Z<EH)O8uevNF_IuP=Z
+zF*OFYOkB_~Y%T57GXG54-10b7OMX6Vr@_R0CK()@$$bs{(^;A*mKMtVJ8!KMKlm#B
+zxUUVP;{QBBo(qdm>GNO4wtNx5ELDwIt`0uZ8Rl{L{%=_xhY!ihd+}qk_Cb71)jl?L
+z^!k65Z{i27`hEOftNj=sv(;asa!~y}#<GAVbClIfW~j24OmR&>ma&svBF&Ib>!j&8
+z?CuqOSGxE}=L*IrIad;7`mHr^E5GnewFP4H+<R9r>yci{=t>(oI7km8;VoD-T!d{)
+z1!@#>!2NJ-K~lWPz{!#s%Um&#qMsUr0WcR}q?n7YYCW`W&Bq9@)zs?@dA~W%XQv0h
+zo4|;?p<c%+?SSz^*)l($2)@fEHe_!Oz{G)8+m-squFC_>VMv(kNUC5<*HoD$J(^Jy
+zo`GGx0SWt(^bGIE_d`Kl>)`XMJ|3Dmv>72Keo$^LCwqYwy|5xMWWXFHQ2(c;XPF?-
+zcRxh{>v&*DQr)jpdLO5{WiDvv&mXH)tCy>_)heGo|9;&6`iP^NYRJsG+D~&d>q(ER
+zP^+Q%kPO|>2Um4bb7ynp2+IECgz2|*C)>_UZPJ9_8b8?`TVCe2HNY=@ZQaz95JzV>
+z`|G7Snr0|ehX`g<0Ih&$>!{n*^v|B59g;XmhKx2qB%F_Ec=m16cVs?C&FN%cUIfek
+zt%?ahDwQWgH}vUJt@UY_)sd{!lAx?<{bXz@CZJ7(Q)LrlnS<*T6a1zWL2F7n=8~eS
+zf@f_9c3Kdk5(Y4q|3nPb_|O+k!FM$n8{^o0qZ9>0wHd7qqV|rHrvPF4#+G^*wvvS-
+z&X-J}Cq_G$lFB-ib}*H)fidJnrIZ64t;P+r+9PGLk*YW#9H;Ge0i?#R=IU}*2ca+4
+zt@Nwwth<Ts%4=R_WQ}wZXgaKPVoM$?8pllM^|%Z_E|wW~dm}_n^bMGw;N?8xo?)u6
+z1UR+JVgv0wU?12_I&t<(+f5R*)QgfuEqhS4@WV&EiDh>?f7aP2tNL8EeYD#?=l=a~
+z+t;zzSD`EOVz7A}K2gKty%>KD9>OQq+?5j)#Y@tBLS}h|VCMe5{)enj%14`&$D!J+
+zz5T2BW#UN8(#opK;L0~JVidWeY2GgX&KiX)tGgD6ev>367~ohG%F|M$mOjdw?=*?*
+zA0`*Wwn@Mm=2@3oLdartu(1;d%7t986+C!NEDAliEuAR|OEFqEzc0MtUP;yAz<ox%
+zN{p*j#|Ju8g6cTEY;e`ElS|0s;7p3aYI~2J`;qV@E5SbqpHbw`5HAovNT;Q0e_#Ky
+zH%s<^q<pkVc^s;DKh6G1ec5vC$T4KqWk{88Fy8)e)!UT37z9I)Ry6e610@)!O`9f9
+z`$1AX@FcQcB8Im1b2&oJV0T<7239;AO_PG1{#g@N+tF?y2CGLa3UnNr?ySiq0Zj)#
+zWz#%DZ1#@c6;x>to2Ge&&h)xkrbP#i-l5}QH=hCH-ALuYuB(-k2U@xH^cQfZeh6n)
+zU52z5#A|6K7;^Js@Z&(!qB6&Rq$k%%5?PupbVs!4=NG)5;D~}2147;DpA8(Y)^S7_
+zuA_k;1PVHJnSEm&WH&P7{D`CxULHGOcJGJ~7;2G-y47)5Ont;ymEq$pTRvKI72<oP
+zcI!t4`m(+pLsngeRQZM!Z-x1NwV7ZB!xkLT=`6tuoD(7DVqib}DklDoX^tRD7FA~-
+zgDTNxnl)J+M_2A_-gO>~D)&X5eKBl;I#8OA_Td^LquR+NsvDQRm3ZO^^xw`MP=69&
+z?VsMNl(c9FA5Vc}C^a8#t<|Y@{y9_oCO&08e(y7(a_U)`VO3~kY-DRc{+{Zpoos<L
+zIX)LTP0NJNY@z^TSRd#B&ccgc66-I^7?p&_g!ZqIVXYWu*%o?Ib@CZw^<k`F?J3cw
+zSglh{?#np3Kq%-4mGwGy#AxkXWf-{z;hGQoO!spW)WZpe9>fr4W;K(uHsDDm3`Yy<
+z)LJ2s1ytj^$9K=rKTG_NV<<HrZRP&u)uH-y94gQHOsJlE)?K^C|C(kc`?;kXx`87B
+zNuQ9@bfjT@Jz9E&tXFS+Z^W?6gbpzH*S%S`g?!}ZGj<z!lY+HQ8&j<^Z*xQ~yx?h>
+z&j7>8b1HZK5qGHcy<GS0rfKDY=_a{lmdL#T)eepp5ow#>C<PS^{WI%$_P<uAZ&7;`
+zQF-#GiTZTbu94g#R=Ob}&g`_D+)YXTkT!M4$$CeP6G90aG>r*;<{)2o*%tOpX$(!9
+zk+~w#l-bdP8w7f*`<ZEBiJWz_A7;<Z%ZTNShIX^GxOZ#_`}T<wfHO|lbG?RsI)+m7
+z(SEP|<%1d@X+))(oe6a>q2<cf{+90QhS~}YcqXUms>6ysi!_yfRjf27R9xuWg?k^_
+z*gbmdzF@6mr8>&sx#x({`rjqZ8-x4v{Q_h@TJ72sgE<qjZ+#{c_G~OkLfRPo3KXPa
+zYV>G7xIV6G?v%5Ry*=yr2vP+age#gX{96;Vq<eU9{?hO3#rpCJ?myGr3*}~MY)ow@
+zuiVp#p3}N7)uYWI;xNyxe_B2fVgwyF$b7W7goo%gT~&(K=@IpALAp1Y+%Bx6mzkGL
+zrp3=XSuzxsMszO77^DrPmBa}{!&Q1lkG6K@leJ#TBwfehwDMP6R{wPc8f2%+vK?6=
+zeJ@$7D((1hxNaZ|%ql`oRXw3||E1crT<As?Z~=KY+)-PB7PZ`(+JEE~5?ah{0q=R2
+zq<ct_b?8e5y0cO=o!k?`mG$NC9RyYq%m_EkPbo&rQqp3N!S;oEv=pON4BflBUb5&s
+zByEgpBo;3{#tq(Mvu#Mhg-~y2lYH%^eS4lMjZ94ufR1fKQUZDRw{i4gQyqNVhLH68
+z+0z_Zo>X+~cSY4sJEH<Qws({Z{|P+X6)d=CkzeS@|G{Oy5IN)zUyq+8iRK1`iV`tk
+zCp%@|wj5V8EmZCy)gl+wa^gVKf<V<zjB3VS0Y3Mv+OEA&>m2E}e>IfKA<V-c7@Ks<
+zWbJ18&)ks6fGL3{Z%7dYTh8yZy3bva?qCR{#@<dfLNNHm8&=B8DV7(Li{*lhCGpQt
+za>Z)SbX%MsgvLKF>s(D+&U}o?GH?mV5XLN)N&0J&rwTgIa<v<N@e-n~U$H!2R#sNh
+z^lS*BNpVu4)=<O4F4JVdnKF<|Zh7Jka}z;rq!}7gG?hANJW_zxN5v3m7U1@G$m4Jc
+z1&0??O0NWo+V(;STN)D^rUV-L=cgze=l%fDh(9TYxS2BGSI^s41VQ;0Hxx8`^t{>#
+zcd8M4vp$UFMU+mlyaYq|;7s=`YPS%Ue1b`i-Prj-RGy`p1J|w*`z`GRB7`zo2AlNP
+zU0P7|*w6UO21wu7gc=0e@_e<O4x}K3nVR9^PNYIZ!Tlg`q(Hl|(4DlX<^}rv7ERl*
+zQ4T6UaN2}yCim5(e1qNZVv0bAz~54xDFvO8#9^g3R4Z3*nGLZXNkA)tFtMSOtupWR
+z)keH!a5Qq)jqx0g?;^HbCmLr6EjvGm%9C#1u`4T2dqU2X$uiiazvih-tFK~f1EkkX
+zsKFMmKoTT0-Gl?4$%L9?(jA9N_B)>#&KwTCV00=|9AKjyRK8;j*<M#`P{zznieY<C
+zYwud#)Qs~Z_`c`vfg1n0HATNuMnt<I&;>9W=Td|FrtD-G{<duuP(GEJ+?N~1yg~f)
+z#!Zl+>0)?h7_*I!XlE02*f=rIgzCQa5BxUa%e0t6=w6rBzPO85^6L!Z4pY~f_}UE_
+z!=8D7$bV+!Gxtjieon@?f$;;EALK6~HWZbyLEFwhBpPnW{&@|3rXmtL(9=Z6LG%0S
+z9~&aF+bZp3X$4qg??^c?Ae3WlAtqEf9RC(8X)q>~`Ffcd7#w5-B2`xc9Q&zf5}<@<
+zf=O3mdf}yqCu%e}@C?F3!!&2|E11@km~Qccrx27KIOAu57k<^58Xm!HUaQrT2)+uF
+z#NyBQ5G`BSgV>s|P=<(7YnDh-g&Qo4CL@rtWV8Y}-vWhEh$u)cr&Ssy2zAGk<QVB$
+z8ZP|?SB;YOH^I<VuzVs0Fotc_ap+Ymt`x$FSsny`?A%$Cz0xrqG2>WRf?%CRDFoIH
+z9aEHnoN1bM0(e46yi)Vkw&IE!4Guga1RFbrbq08&$Y0$T+$H;w3H6m4G^sj(b%6M;
+zIO&)g8WUlbti3Gk2N%Xenxh9|Ge9jQqs0}%dP91$4TvLWE>81{$C*JZ?WJKKHdHHD
+zWwZ+VfP+gou2$M~QV$Wj0ocqbmX}}gLuMRHN3aCj^=cGC#|-c!XX;y==NJ>2rCb8X
+z;|G8h!#o{$L<sz6u;zgG7lQDv=d-`q<=%Lv1_Y)wRV7B+htvWwgl=;~gcd3Sro=;{
+z)^iLoTDNiq-vOiFOwF}S_C3XriyNW?xHm$_;d9gxDIh8<OuNnyGCg)2rM(43aq{(|
+zWkng98LVduugw>9ThYwIle%o|v!zXUcJ2nExp`+f_Zwi6p$}IQI=F^tKf^6iTYD^R
+zx`@L*yfJPDqGC&N?wNGz5QeReuNyip!G9^&RVNOQBQRxN41P$Qy`DeM7FpEwwf?e&
+zPVD@!8TTA?N6Ug-61;mZy91IHI%F8$+2;iCCT3VBM$$Sk-0HxFgpTcEr?e1hBRr==
+zX3aUP@snau8w{^X%w|44I_D?br~v9mz&d*EVjc(EY4EcgKPGKMSlvM5Tmc>C#lWg7
+znCX)hb#2Rb!1!m*nv7QrR6RjFyj&nHNI6J{G0%)@PD$cxOv#3kVp!G_NX9yRQ)?m?
+z!l&~%+!C!?6KSe6!~E2HJQPJ(o9O7CR8`7`>5-!Z)`uK1cCSJjK87!9y!9Vq>0V#6
+z+0=D_{AWyQ;dKuD4YdD82l#Bhh#S<5a8vw}Z0JRU7c-LF@E^gDUaUGX$PmF@J&`>(
+zSV``!@FFAncjb}re)hv1&#s>(2y{rUhWP<-+#Z`YR0C~U(y^N*z+;+YIkJxCq&w4+
+znG)TN0G(P$YuEEdM9G9@3Csp~F0|9kzeGY~i-=?LyrfD^j_Y+QbMGGX5Cqe)T_rYD
+zBRlVheyYT?qI=q;Zak#j*xrtmU;G;HRd*7rXw_$jh6hkgyP_@{>-G=$+t(f)xrPO;
+z5%FD+kr8PT6H{N9))}ybp0laac2c8j`~V6U#*P+GY*Oz<gf(#)&(c3}VlNq4W_7(r
+z=^-IBx>DsK&@U&Pvc5f+p|z_=JA)f77L%)1Rp|v1Vx=BW<0%&9(bCab{d0W3f5)^1
+zY<dXu+a$j)6HeSe)==lS>N<W5R(8>N<?`GD%qV(Rm3DQ7u;-s01qaG8n3XO++)}B*
+z$xxP_?VxdWpnCEi?1SZ#sgak2WXIXuDplH-j9I~*vZ4K1icI#C0o&$P<nFwFPF{`O
+zq~nc7>!g)&VP*>EaWGm22Y&vdQNw?_NgSx*e_(=Jy1vu2BxSGlOS6?cMvp@VhviSC
+zp&f#C@?LG_Yg+w+jeiv5<tUHW5WQT<c6jvE<#dq~er+kL?HC7Y11E1ID)oq(5%G>z
+zGytHPHt~WN25&l{puQ6_LUy+k>qV+|U1HB@F{vm3STP|0i|`RYj>O~MYAh02Al`$|
+zfiwNmcO$1AB%FChItSPIf?&`6<ylI#Q{@Xa@<Ps#GAFc6tBf{x1AtRle-(8zw=|_@
+zxJ&g(N&?`zjFUg$Z(qNk_w5nSQ7_}r=l2ELCqBXg@BU@q$ssBO_?@@Xi^krr{>-)V
+zhDBXnTG;U5?O%F>4CWqiX(|UX850WS1!<E@<pUMNLU=jzCF3)K!2OKprOeW^{95XC
+zZ<S!JU&XrMm{xY?xM$Fyl{^AJ*L;RPy?WS~HaY^Ys-ZL@h8h9t<jcU<L;o{2R$>S%
+z6Ahg)oY~F*R-}tkQ1x0Jsr3~f@7S|snI)N<Z=<Z66c{w{v#W*kDh>$-^{l@pIb>EG
+z0e8zazpqcKjiGwbQ5}c!_f@OC+JyGOL&RERzIZ&?*&OUm+zNyw?K!LF<w`jSgW~Lp
+z7+{^i5=v<X0)WbcnCV%5m1Bs}ULofN$)d4uXrKU_XV=E)GVsEa^V7U6rH7r*0x=X1
+zEk98RSNfsjYT(RIIhDgVn#5rcW}0L#xN5SSIbJr*qhV8E=y+4_$ai_ZFY=RNF8Wc{
+z5hp*AJPuw*?|^Zj?jZdO=L#`-)yixR-qp3v>6wl|m7Y+Q)_FmCW~?XyFiJE-mS4ib
+zr3zy}C>nce^M!o`l4iue#O5nsHQK$(rcK)s*7v3i;&F%aIBF5_d?_;SyRU1}u~(6M
+zz#s+li(2NW7ax&lgqO?$5E)0~e^DLzRf^QQG1YzLN^FR%yYRWMyg(}hhGzmJLZ+ON
+zn&p?9Bg4-9*05km1@8iLZ$opr1%qlWeWcqwOaHr?o8>`FL+gA;vso}4Md2)7%dkO)
+z6d1Oq6BNTZ=XHj!A37q*Xx$<0+UG<wfrfn2uGVTJAhbG&`^s3U(#DH<{0U+aF0wn|
+z&U*dD1-8J@e_2CfGGhSGaaSFKEtNhaL!EMXrIp4@CSG|8_Lt#0Qb^ra(h8R6i-q}8
+z0R3ZcX#efNq#--HTqkWRv3vw=dZTW%s<b1W>N_SH1yZLK;)K3jL&UOvfm(0){ciH2
+z|8I~%I7>Rag7<vb#(ok;*$STWzMyjYD}F(8$W*N(+HO24r?A+A8$#%iTlRp$c9b<1
+zWu+eZskPqWOS(hLHMZ;pwmd_Et>ZH?q|N|aY31-*5ksaDAEr1G&hfTbo-Y>W3jms6
+zGdrL%JCx3yN=E$|nEuiX`>NC^iN}|x^)0Lp*Rp2l8J^pLViagfvLfXlEHl+AI3)WS
+z$2tPnQ<-mzd|l+ihKY3~-8c_a1Py5c!vn?ws<DV$Yqgd6$ThY&t6eiBhy_4&>Cq`)
+zFs&S3H^h*s#D^)4CcNj}mgno%*7jxK1Zi5?pB!S(=(kJg{7IH*(3IirKNKFQt1-GL
+zaf^BltMgZ^0`{BOUlALpW!x8WSHyG}(<7jxk=YOj2W@z8B^FVOyKlrE-LV^%4YgAp
+zr@dg4mXF~}l98Rc>3fZBCoBP=o`Kxl-L3;|oYzu+GMA4h%iUYb3PnSXl&?)Xb_%!8
+zpgF+w?S5-B&j_RYF!<_@qoZCb;;DHYsCMv{H`S&QwTRVm_))<*XfofO4>e{69==rS
+z%nzVQy&*9BEXa5+;VR?K`L}%bn9kY|R2(pL8q8AL3MWV*?Q1cyM5q&DS_i$=fex6!
+zmVjUN=2-S~&sy7}jC5F!Cbf=!*A0%+F1E+uN<UnMPxtdxK*Sxh(gOHxrjRgYbNCdf
+zEsc)De+hlOqO^T(z`i%?^A?*5Wc;&{q@73;BgyHt0(-fjMJWe9&>XIg!{4GK=fuF$
+zczsFYUf=kb*C81DHMXKsF~KhP`RrwqP^7)OcV5%G0@LkkJ`PYdP;eUYb5Y0u;G~l{
+zd_y)kx<T)?>`ymIt(L*zU)JJt=^`Tr`6lTbtmnlX*9vA(pFLFo+m})t(k<#T)!!3I
+z_0e!8yWvVUM?Ob*yyWaIj|zGhvvYb$C!Z5X_I~z{4Fp}b@Tk=}E@w<z);hYNBU(;j
+z3S380bBETN5JUFq6adc+XM^P`gdW%}w%;Z#|6F-3k6ZN`%(>>F;ZG7$$u6hdGcPA!
+zpL@bohPS(CPVix;aB@K*d7RENZ<#t3D7D(L0dN;Z2r|DlkMw5tn?KxdU%}ULI1)PA
+z1@iN|_aTp&Tn4{r7Bu{g&-H-0BtXqU3ar?G-nr}v4R50H3PFc^BjvEt5NHyqu%zuM
+z)H?Ccb~r7WvclkyX^^4w0L)Pd!lptij2U^cW{B(=$SxeX*ff?EVT$o3Mfl~*6M{1!
+z{(E{&W#+s9uexJUnA3q$pnqrD@f*J#2~6m~Dr<RC$si;_LxasPOzuVbSQ_SYd_Nb6
+z-^?;k_P6HIH??{)Fu&)!j(WTKB+$4ic^riN1#en<0*OH@L6Wc@IV=UhHvrqPC^eXd
+z1M^upXXG=pW5^c&ESzb5IbqMhv&Mc`%&)=AxFK&N>R3bHsIY*J!dT~SoEakwV2>U<
+zj#wf7Jwr`#^pH?7C|egFg#4`Yp9MFr>L7~Bt<{SNh4yg^$%b*R(~b~a<Tpc&dA>82
+zVmKM*)1&5wbVbg8CWbj;h?(yxIM{Yllp=|#hhrO3nO2+jDQ#&Q1vz@O?&w-Kj$@|v
+z<%T`q0NxFd6tFH?G6Hl$hg>JGL!+;H88-lXa{rKqbXV69U!j}9LCEQ_(`5AV9u~`7
+zGi5ke!c=KfL9|T#bF$x2QpbUCA~NJJP-wkr2WLY^h!((BjErzXp#8|_%<<2gv=qN)
+zye7bKXddToOm)vjL$ug4B>q!F4|IeF#9;=8%;0CJCi4I_nJV(o`OktUGxZS+lnRbA
+z*XMr&5&vx~aMHHcyFv1mL`PjQgqFQL4j-7d08v7MnbM*v0bVEy9e@CH%dD<oGatG9
+zmY|*gKu(7<PQri%K(x7jeWT?%lCh^sTfbucyPPawRZfKYzfo^Q83hoU1Jfbvky}^9
+zJM(0D_0G&9Hm-y#=9WZE$!6VgH(_>bJbJ}rVe;KH$D%s>Ial3U9>vFW6W7v7f2nDE
+zp-RV%-Qw+dK<Zfu=!jZtu{7|rCsXB2r{CyE>D15B>M#G>mRLu;-8PR8_aK&CLlh`{
+zK^%}7YFX=dPkX`j;Le)Od<C{gpnX&S_Xn*M;7pg60GQ>MBSvc-iB45oTOLG7yIH_)
+zQF>!N_6ho@<3hTGY(x?HBN{GQAQ6g&6acognu;#<V!z(Q*CDX0l)>>&bO2FiYWPIf
+z6;OLt3GbPikdEk`YCN2Z)Sgqa0gle-Na@tyiIpe+QA(^M=7wXg2`=Or`b6BuT5h}6
+zAD(t`KWTPluh-ss0@?@Omv9>mD#(on6+!`8I<}5Z2*y@~;MUCo_L+{bo)cLa(P3}6
+zg^#@efB^{HR~v9D0Kg7OZ(HW8`~l1x-!b>&6+{WMH_f`9-EBKOS!-~pGDQMKjGLih
+zOSiN@r&jL&qm)=jWJjDJEv8l#w3c45A&u>5674%z%HhF3XkAB5SK)aFtLw<$8iHij
+zvwhM}i&Y+zY2}p!e#;;U3ou>VKSdLl!<v6>F>muv=(shH=E7rLgXFCk3;tk1$p+sM
+zJlBp3wIaTf<M`<J$0JV?2cDcvyq*Ge<8V(D6zCt%X1##|3P;u<RmZ_sbFhkn6F0(V
+z=mJ>iHTxSp!N~Bp`5s``-TM-!wr2{z+f5h=HSi>IncrsDaX@|)OFX8mXSiHL!BO}o
+zp{P6&hjC(gr7k_nT{qY;kAwD?vkXt-@DuNs3@4>aZ_nYFzhruB*z@#s5-hK{@km&p
+z?j|7HU#Rz0(dYdcN(wI3BnsL-nTpc)7X!jPW{P8(o8jfeB@7n_Hq=wlw&yzlBV^3q
+zB;WE<#%O|YsxI@<0dXG9B+gz85)#tHm4_GYLlIXdlDTX!R9nLsFx+uBj>VQ<hso0k
+zS5%&zoP5*LWcbZwj###Ob-GcYmIb9b^2j6(bl)x`pWC#)R=VU6$#sMJB`zR5DS(x%
+zhjp19ZR0@iJol<*=sk@y{fn+J!<{2uE-tJ`Vv%WLoumO$C27+f-vN^3!6}XTGsFe3
+z*R<>zny_aYvTn@WbA+Tgiz|C8y%adW7JnYP-0@_?peM`>TXlBtzbG1%qPjN{T&$<7
+zFBE~I@N-vgtcD>{jpK702P*gv_uE$y9ffSDQbU_!D1{DiaLm!{w+t*19su;L;{*Rv
+zp5gTtP9TlT$@a1J&1qJ>sg-B|$=Zq0U?fF`ThfXwFKF<XHA*cDmKx6Knfn#ly%jDs
+zIMcYlM@5RICm3T_k9Joc{XRzu#*mi5;mt1hRyLD()n;w@7d3oWg7SH}2>BT5nIOL8
+zk$D^tkUX>SnwT4|VC4NJhG90l(%~3#MwNCfGX*gD4NqheuQ7KN{JvsRZ`pdc)0uAn
+zi=U?sq#WAX8&g5B&Z8%k^SfopG)YzT#?*QCJ!ye6XYk}eWD}X;=#Rxx)h(Q5-d$Fk
+zvA-`8snkNND5V?uS-5#dZ%rPDqD3UT`RY+>)Y`t5y<hm-yG!+G6II%y?QWC}`syww
+z49wjE*kJzF9N@_4(V-Y6;Q{<6;tft-$nf~DV-q($V<EMH_MjgqfdA%x28{1|D^(kN
+z)$D=E0l+$DW&r-!>+TJ;+tg@39A(Q-wzN8qQbvlAmdhC#uaG=IOtY?|bTpm47;o{;
+z3Dkd00txkCJ#bJhtIN6m!~OPuDbk~DlQuSs5?-`?w68|%pJ<5A``|bCCIgTQc3+EO
+zjLy@IfB&^6QgZ#G`?Yq_e?lq^uUs+(Gl{Z^SWf=3ieV~cZR7Cfx#yjsffvsLAVU+H
+zM>3KgA6iT;=~=gVc^zPN6ELK7NtI%{XeIh8GQiD@IU7xKEce!?A*M%_$Dw;hX~$d-
+z^cqo`80R#$G^%M#@_163K-^)c(=6!8P<0&Ym&H+Tw@NtcULJ=VP2zCoNgQ~-Rho%*
+z3nYC#rX{J&1yN4`1E-{cxocBq*l@`dZ2e~Ls7h-J2%aAUWFs+&Rc01g=9)Fezic`v
+z^}?Lhi><@z*-Ld(|I!|<yknq;=2+`-Gc)z>P&xt0hzOkNH6?e{fjVgkKb>x63Tu+*
+z$7L?GNJJd+tKm^^OEh#wL)ewedvozxQFMJ*_uA$?d02aE`7Mb~n=(VwPRKw2XHe!k
+znnzsQ7PVTG+M9Ib%H7u-sIdOEZzjKdrQB63XJOvl$6Au;hSsoFc|4Ws_%AncGCbNQ
+z#X$B(LWocXQqf$nQD?N1$lZIgy4bJp#xE>+D5k|!4|pNMwkVl#XaS&ONyn|o)`4^9
+zo$Xu`aM6}O*+#V?JK0e=VjmiFl2^xic6>NZBSlJO81p!2IJAm5G|R6m<|&JY_~%3;
+z{QYk7!@!aK8=twB@u7RY$I?`}CwGZ($hLy)Uo%FMIc}MfcGZO?!nANKZF7fvcR+TP
+zfuH90qrR_DWkwP(^V^sT=A)0yDi&}uxXyfVS@;4>VoP*I*pNcfX`J*eEyOwzX|>Tw
+zEhW5JUg}0GF(fAGz?~C-V!l`;ZxXr|zMQE)C1X1U6(h?wvUt8}G-y6Inaj2|`ShDQ
+zK4Lo3<|+G%;Gl&g-?S@6-2{K#f3xav=Sx@%D@;3va_ze<X_u6kxhx0RVtTT`^9ra3
+z#>ecZ7E_M428a6y%wn*L1)K~nhvi~f4A77lyXdwvww+x{3-*pktIb;&A|2mr@`l7D
+zMziIEMe+t?-fI?NB2<$UF~?70!diQe?;5#&ovGs^r=tfqL>Zv3rQA8&(UDmtADSW;
+z3t29S*=k~rnU)kBHCa`|v_t{Ufbg2CnqR!d1MuH5jR0Ggmn#m-#j+TnA(s&&P5>8B
+z$LvzZR%iJ6FowKTGJu_eyf<>hS&H~BLXbK>5;|&{q3(k5O80_G-tRj8O~;Ehc<fnW
+z+6Ld;REl+Cs$ECVWLF82{llK&eNt{Wwum2?H&&>*T62fxdggu%-Uh;nZB9R}V<(eo
+zEwX>r1UDM8n#l?Y$cs_%Sg5O!MT(}6i+W<n58CBd9rb91HpZcFC49@j_b=slN;f>A
+zVNXSRzC0~u9b7es4sQ;$@V2}g6Ce-nIemvGB#wkFPxP7n7xD9?-|EpWTo_9?bZ4=(
+zI!^q8{}nO7C~y6-I)wH~#hRrK#~f1Z2<XGt%a3~34QL*RtCGsWJVdYkyMfsIH%!Xl
+zP6q5rneuTYVj*3us?L%HP(VsxQba7Yz}OBvdD{9(Or#NqZ%}iP2__t&C09_fhIx~}
+zy$^K1>AhZI5WkF_hl`dA)M$llubCbgv;PAA2FImC{b@w!?8{hyFQf+in>Kk^ecrvQ
+z&48uRiKBKO%KAnNm}f5s-)$z}wx8sQEl~dRPYB_H&V$bfWjja4e_D}1OT9VrUR2P<
+zA@2(=kA#joF{BJ>r%5^Ak?QE>2bT!IY>AOh84${dNb9&0F-w!_d<3~Eh|@1{>rQYB
+zcoT+p0>+3OE5k*ZMgRppnPGri8^pCGWbc?yfIADVB0_+rQ@2{2CqiYHJrkP~=w|EN
+z_}&7(y>kYrd-@{IBM(oPWHzYOTf%3(FRIxe@VBoqI?@MxdD_l3Cw?Xi2pDby=Zuyi
+zm&*NY=tP&{LpH{y%fFrTulqJ)qT^DfJNK{h2j@OaAB-FGGa+(H*s{qscp=x6iujf-
+zpx}tAr3PKNW$WG`>zhxC>1NUszP3j{N5eHV8D{Alj$aJ@DEpL*md*8G+jMI!bIPZR
+zBYm6c<3DR8{nb@AwlA6zqy0BiZ?48=toO=|)<svMbIG#PNIU9RAUAgqvTaB2PD#(h
+zH$ErHBtzYz7W{_vXPsF~{Az0UwHj-D_4HmT+MW;;yI>8a+r61BZrYRL!~^!=dAnRJ
+zTUzF}AhyIwnAmvvEhw3PVGdfG#NmgzepY+O`kikx86ux>&uPx8q2WO55`L82jToU;
+z-tA%^-XVPK5=u9n4CjF@!SBJqc>n=5!+y_pza}`M%LoCM>bZ}&v?Na(Js=uT2_j`=
+zNujN~u!jQONof_f9)m9+scvn#VK3aG!#*%J&er^qOykd`EQ2iBS~@IADE2#c-dW#X
+z?NIs(QEUp-mUS^}J5+P%OELHZ{`QA^J=znBc^s543$4oooeXc^@MEL(fYc}CTfOI#
+z(yFWn#flYg(I!j<afmML_iC#5vf|P-N)r!B@`)K3Ykk3SxcI1dF|S$H`p_2F>&mXn
+zi~y5GSWl>#KH2alK})O7PS#+xt0j2uP$su1R=_5HSYw8WqTWuW#ck)w!>FKbf^*q|
+zVBHel<aWDaMBrPSbu;O_%pu?xmxgcPQg5qqF_E~Nuj4?IIDB9}S|KIvmA585W5`qv
+zZ*9{KXu>hHX`7IBXadIGR@qB1vhy0*oW9;5TU)sE!M$Ov553}g<&SpWw~wrfIHykr
+z*A7fYVJ2&M&;jy0h1A61%2-U$KYP{#3`2CI{cA^^65?RwgP;_;Hfv{@b9gb}ATOke
+z_Y-S%N~|*mfx4E>DJk;g%P+QRT_C@<Bl<sE;f6<Q(^_Km#onTR%HU0RKDa^{>FL(z
+z<u&5TpKLCtPo@{=I_qQ&sj{YwuEQX+r0G;&n5BY8N5eZWS=4oAtwVA|mdJ>dQC$y8
+zlb$K-%_tdG*rxUQPW3gPc~o0Lhc?N0hq-6mHAjYXQgUz+?(F-%>!?OE$bwo7M$*tY
+zpvK7#{4kU;B!oziPeE(2<Edp2CeUz3DKVo^VL=D&ln|$N46nf7`I6}0BSjlfN^5`9
+z9A;93p?i)ocjJ*JJTbt2b%Npfw{wrBYaP-;aV9*4aD$MC?q%(VqsS2a+?mH>lbZ^u
+zQXq{XBsH<JHOA`6v)h{d{vWJkIL%r|ul>92G+;z%wSTQVdSnGj;Azi($V4VwATpCw
+zZ{rwzzaY-64AINNbzvFT7kV*aeSvETH%tl4MmP`bii(K|RKgV4R3OzQxGE3~KVD0>
+z)yx$Fr^8?u$9!k^TXh^p;Fth(8Z_VS+?Yw2KTNz$1(&fuAy-Y!&_DOc=FmhQr8KVV
+z(U5!p%7YuChCewWR5v`Yog7S>X&I7+a_A#F($=Y+VU|Gb_hw&k0~p7kQ_mUc3G0H9
+zo?O@j0J{YZwY2@VUJvWSm*=GeI`S!3O{!j@riS2lYp_^|&teF2n0vN!1uwtA+$%uK
+zhQ8p-DMmwyNgTSIw5+Vx*{wZqS;!vJeL6+Wg^`|?Fc`2zxdAa(b$GhONsH19ZqpLO
+zo7d35k{2~fb_m(+Leb$!q&$@M>LZHH?QV1pHDZX8pOp_+;l)_qzhhzoGQThGz*V@y
+zvc4Zs?0_FG1@R)lzC+eani4x@_}%;el7{QT_+eB~UbX)wykt5t{VfF2LYU*MS<i&&
+zz0K)MU^MpLjBi)GL3oEUj*Lv>i~XW}ei8~a`+m{3E1^BBsB{U;>@Y<d2|X$Z#Y(O5
+zX>x>=I(fFJ8-w_|Dh;_LP||P3d!vv6N|Wl`fIKp;Xce*Jo$01FE>T~pXSM$TYxD?s
+zO)xXBaIj|@P@uYIuBTkr0ap73)-4C^0z4{^3rDXq_Dpqz(XjlfcEd66g#IblX1Iho
+z9U5Azh!CHPpdMk=+XXnj+{;&r@;EdlkAr-_WN)ZhI^+bTV!l<i4TQ3eNxh;TZCu(E
+zzh-9EWbL2U--b<OczqCT(|3WiZ6gz~rb$;}k=(bEE}?rhuej_arswc{AL|R#mi{#o
+zmVMzWV9ecsIU11tno<{=a22hycR8)gR87%RZ^9r0x}fRTSl2V88$V@V3~k(%<Yvb{
+z)@L3Elf;4Mad^k%1ztjjolfiU>OQQ&QGlE|DSp{3zuw&^b4X}_cMW#9u!($ZGXYzo
+z$*+RPkMRA?Xf%`~h(27ydNXaw2SC1KRt4s6K>R1EmkJRrI*$3lH9DeqLn{BgLK<p)
+zW>%E(I15V@#;sFBu3;e|>p|DMuE)TEZqSx7Z%7Bx`B-UMZuv~wl$n50|CJAju-qsV
+zWsbA({6xytw&mGPc;Up{4gX%r+9OA#FeAE>#ek%8Fae}B7!Xd}2#BNBHDvpVMHL1$
+z#)RsKi;&BwoY>CM;N0Zp$4W5v*o@MIgaRz^T*shI&+>pC&MQ<{tkH%-V_|$w9~!FM
+z5NHoFPg&u<ZzT^a8A%F4aoV!T15J91EX?EZgS4g~_Yih+c@e2*|8L&sE^F1TC|Gjq
+ziF@VZHe{7BGxy5h+~}`=_Y*&2U|e(sE_<z!q@66BHCr&Hep%_zT4s@G=9>7dW>k~M
+zN;2Uq!lst{iKExw**B4PJShD$p2*g5l-R@3rijI*q1(zdwCm5WfH_t*BY7f`is)oI
+zA8zn?(zNCor+N!=^P)fSgg5HL_=^C}Ug6_G_q-=c`Qhvhk$HqAs{M$8-9#zaoj<O?
+zDCevnqH77VYPHv(V$bZm8yb27A5ql!jySS~4GyHiJt0Bh$kCKAZsF!-*QVfBP7U4d
+z;F7auByT1)nM2GyM!~!V+KZl?{$LyY-2vg9&9=c`F`bn2opZW{9__ii?6nt8l3=cN
+zZXrE^ifw9|mxlI^Rq*s>`$em=Zo_P-iH4}*scMGT1+{b#J@KUFQ=CsD{j}aOBNeH1
+z8aY-DV(1`b0?-6*XHM)|M(k{IY;7kC7=I#XoCAf$v*Qu#GpY<efsd7;ZPakgyX;)k
+zei5`nviszYp*8tCoG2kSGirz?Y9iTYp|pltqpJSH$R0TWOeXlweBWG{?F_(X_5`$O
+zVhX?=S21qkT03Vy_XMWvoa7kmWe^Frlx*sUj<M4kiKq2T0&S$SP5Q1ejCI#<KspWN
+zTPFL&*)i}wINIyUk@@-JLr;+7%ig`J`?)axx0Lb`c#;ePH2+q2>9$`Xb_k}xtB<rd
+zH)=d#_<;-#k9Xj?0|g8kyqO2N?jU_Ew8A$&ii)(%gmK50%mIv<eNp$p%xU7ds3Z}?
+zS7wDUxplXn__s}^iGA$QpKyb|g<4`fowYr1&z|CK?<Q-59NdB><z_X2uoew<Vn{S>
+z>Ofb`l%u`C;kl+DAtOm1Zk<$%Ml)RarE_b3gCmBR{z!&O^QzBUK)NM~NnQw!kL{{=
+z2?9xaLd#B^^@O=l0Yl0A-|fBdZ+a!KEs@}v$};fo$f%>Rax0}hsekogC!CADdR$UJ
+z)kNx-dO4|RsBuHwFglQG2#E}GXe|{DM(Q$?Y|ZXxql==`unh(+XtIO@dK$%KHhZ>+
+zF+A=KkX=_#t_!Qf`y0vLy0@ndhUUj+ih0?hCs2CZ)3F?cwV{vpvh@+`(2&Vrz#m}&
+z(a4`?8+aa=BwVLQ)zI+Z=|c-H`|yC9PH<DKYdU!DRsPyyicGysE?)SAg^m<tId?cj
+z!_7YaF#(-rP}f$QZt4<m=NkpkJL4LTDM?ztqC%}#8H2+&ewx6@-jaCLSD?FRUSZyV
+zS?R`oI&f_)m4G%nPbW6?6gG#>`2mha^=lBw&qf<JGuN+GxY)tR?0W0Dp%o_%G{bJM
+z?pN8$D}Wsdn6D4~wT)(q=H?{z0+y-c{>VCPvAh7_v*?+=M_%eG@N5A71(ehsYm0^b
+zjxB2>h&&ZpEJGMaU+kUlbys|IG$#rlQCe|5%-5bqH<?;Es0lT=aS|wAV(81ge9b5y
+zZB)$TAbc;pCN?O!#+J?L@W33m>=5{`OiZgTGGKerqU%)V1$XhTyF$phaEo8ciq^Gq
+z1zfvEQ=staoidx2<S2X|T?Kg-ZlrNpSVL5$;DYsnbuie8oHYqgU9LeokcTx^&SHvU
+zb_A}3lnuQ^Y}qnbt_oVaEqg2IB__0dgygdg9~Sm#W;uuW8D_aPw^-wyL^PMdjcD|N
+zdL67JZ71TutO@|IMSj_LvG<3W7nHIs_L?0k0pr$cE(r2U>6Jf5e(S!D%knKc4m(QQ
+z0>G_J-|Ic{88HBogqeYu#jy9VawJlp!c9?ZCXItqcpMNS*FoDCy%`vEDCv8PwS;v>
+z4YM3tS-WyU=+Lh3jGC)`Ip*ynOi8O5Nm+bvnO9lNtmeW!iBw>CP4IltMxv7!fXRf~
+zlmgyuwCQbvfskB=cZcy~F*}|XSPk>jKcHpUah<mM26@RNygDD@l_4OaB?j~4Jmju}
+zL7zO?oD`Nv6pp&GYqjx4pZHM{Ziz7t?!}EYqajHAI~WKl4c?&T)14vNATZlG#mv{x
+z(q$dAy7+tz#T0;K*G9EQ>mp9@7+#6LBR4RroX}yZ>|kKCL5z;M9%_K;xj{H%*P2jg
+zL7`Qf@33328g7$Y?kUHdmhHxZIL!!@ZVyC+n?2WTVEfqn5?-UZrv9046;e5@#rur7
+zD1UMqV7a@QBSUM<kF<@W#;iBU@JIj?PT#Hq+*!O#ls%hZ3Wc#2VC0ckKYNP`F%gTS
+z#6jNX523gcZ+!w;e?~zg%6i~^q;2}g%tK7AVhTBihEh0}0g0Ull`|qQOePB<!9j=?
+z-W(bL7(VL$>*#n<ItZCO48-iR_ueJ~UkH4fUS?Wf;V0r;eTD?2=z`b_MPsgrHhLG>
+zdPQgw388ws07Je1((!S4)POOwPhQcBTcvFQaC{0*sh;IeaU=?3qMd!E$W-f9w<gs)
+zF&mF9x6Piu%(hN}nhg*0=qjFFmyFxk^GU&w!;6Z8G&F<}5GVWWwqoV@MK}fesmZy!
+z-BP~cU(bf<DwX;xFQ*X=C9x#9VQ$%Nd}C9Df|zs7v<|j|o=n{VsF%Lwj)2=Ib%-D%
+zkHr*FOuC-ySY<P4VSrQ|pa5$@%=D?$cw!!h#AgL>{-GzHKe6TvMRlk6MZWCIjQrd`
+z&=Ahm6)Dj8lx1+vvS9dKf8aOY1wgu0`IwE5P>hSpD6GWbaw~AP$GqoIaV4BtenHt`
+zZP?7Q(P-3(q1KrzvqZoPHqNkvihES48KPK#W7?Ft+lZDT?2DM`^6Q+>4NThk`FW1H
+z-72C_mZt=?8#;`YIQbLX+FPu8XO9cf_=-r{Zd?p|xbPH#EK9EHqw{?qYxr1==KMUn
+z%T91%CsI(ddVw7BA1#_YfnwS=I%vM=1~4rbGGbzJCj2o0H|y{~Pw08FAa?Xb2CX+)
+ziu1E`F-PvqXLV?MGpRpqJ<C~;S3!2`wRdMFZvVAzeGMDG7BX_l;DYaj9r-#@9*5zi
+zq#e$mXB+atH9CaQ`igm5$p@`~SK8uF)(ZeG>XyC^KLlYcnzam!l*xR<9KHCIbJ*&E
+zpV&tiTqq!&aa9&@S`AaS1>t&9T539aX)S4IB)TavjH2S0?Fz0AC6EQL5NbKPHgDP@
+zsAS__XLJ7xm#`H_>#pN<wN~F^DI<3uWTIczfxDeE!YgWau3uM_UQzF$^CrA_j2yi(
+zM|r5^3!9_Y3)g=vu>j+dQzo+yCejm<S@;7&76$_qi2*Ye%<5ZkZgHWHCe=8&hm7Z3
+z&{d^g7P}(e1*rv_d2_bS{VyDo1GK-)$<euHrCiZ4IzT!Q2piN*OlziBxPl%%-_K&f
+z(#BFpmRAp$ECZ)ZW`$<oBK~fpND==hVy$U?eM*!PiOh(~2X=9ew6bUNbO~l=hq`??
+zm;P~X+L7m~z2{$!am(uxE`|eJ!J{|hJJs8<-8}JRY&iAe4o^pd)^bbnYUA4jDL`Rs
+z87CACbwUNT+K!x1mYa6FldlrJv0UGf5NZuSVz&F1NVvobERz>&Tp$|KDE3Za1^g^`
+zC00M4P|W&DIH!N5km@H~<wj$z3;Wn~%*3@w9-q+n)^;TR1JLSA(k4Nkx(iz7yir3A
+zHO{O=KHSEe%izNfhInq;cgzKA61&E`_W|5q0pO&O48V8}+%={h-J_x-7$ZOJ1U?=J
+z(+jf}3gv}DDo6Gi=y(CDYZl-O)=71RKcW8`j+DUqP241Ul$}|jjc<<(H&&q31SuDO
+zbuEtydPhUVu$h79!~~<5fs_^8tYJR#*2d}`$3D8N+4vIiX1UZ$T0k<eX^#9RV;T}S
+zxM4)Ng%MtdvOZ3hwzbo4ymZf6li{zaJ-+dbO?$lsk6!C&OpC9_gCDMyPpk#4)0Uxo
+z!L`f}l-!xqIfmEa?=+%i$mx*Cm6*(Vl5=11kTVrEhL$dv9rSKC>tN60S7}0VJ$o`t
+z;_!(&rUk3jtKXKVl=PN^+Z0@f{RRj28}P0JFQLO7I}M=U;0@>JOUTdsS=0c}6DCD=
+zYBOj!<zq9e?)hyC48t3};60%+4+uj2ic3J|T0d)63q5@(lTd4~D}WTrn-vb%UhZi4
+zPtH+o2I-HA_a%W2fHslLb8Hpk63|^B?Y*%f`8j@ZV6_<<t|3=LbcoR1D28*!(}Ff#
+zfLD^L3~nPNd#n2kFdXkNkOtLWd}qU!Bz@%a+*)hIw4`j!u`Yq|n2Y`E{g-}v6z~I2
+zCWPE(9jM%Ls$qmpT>-6yy^XAuFQ1-V>)9^D_EN)+`6teSXSWx3yS2csVcUP+R*jrm
+zG&EexDTXRK#@G8I%Oq8Iv~1sD&sC*`=NK7IR}QY#WiXO!O<b#o)@^;-5liN2HYbJx
+zhUR26BsuBQB37NDR$}v>V!_3Gre568D{3ZzYq6q^gOj{0c{DW!RPCNsdfMr`N?zOU
+z5YcDZzk&Vy!7GLk{Ef$G>{*>~V@*u54E${)ffu}Cu(T60O-u2JED+S~j-BaB)&6`^
+z|LlO|Mv3n16|uOMF=yLvZRv%(EFKEk-n;4+L+YD;l_9QCLg>XhwsNj&xf*kb8=FIB
+z5>Ip(jp!{$T{uzQslW@lBc}*hwA}2ao?Ppd7Vyl_x>eeRq<!+_>HJ{DDI<wZ8QjRc
+zRdC^N3Z6%@t8LGwZE2kGt$)S9-S!cWsT*J%|NF9SPfosSl#jNR;Zi~U#I%5TPH-yT
+z4K01ZT;l|QS?`#<f!k-6ur?ix%fr<OZzj5NV4??Rc@Tm%_m13ySwOG#DAxB;7e;*t
+zgo3UKz^K)Ve8FOQnbr2{ADbp@2dt;TlOqD*(|a)!pKUjV7Mj2LD=gEL#0_h8v7O*W
+z-r(Jv&E_C(E^;kk5AgXx6V{%MEDuZoL5cpICVIGdT-;kG35NZem|WQ@bQ~_QrnY+s
+zJ?ssD{1s}oZ?;%o8&1Z|G$G%iY4HT>u|awM3B|Yz{blnD68+b$^i=UKww1oogtcdL
+z&ABtjacO7s$^F8XQEIW@f}zp2Du_>fK^yb@=mtMOSzxCC*>tCl)%iEQK?!_&)<`Ji
+zhz!gKbU-*GwJej}wDDi9nY5$Q=-R3*56O=G)^l~94_4lJoMtT<F2VhHY`aZZM-=}S
+zH(T;|EJo$%wve%7Cl(EBzcWf{qDH98Zt^xhFw&(%6PPIp9{A>)y-$sEuv0%!bYx~n
+zoXwv7tbI)8`}oPmMzr+TR3p24JcSx;xhF-_D1GsbhbSf1BL8_DJevdd7+}`{={K+x
+z=uezX7x}7m;aq+34v10Xh=HIgv(g4n@4T#FF60KNS8k|5>7|Ds%<mwOrbi`>o_^|0
+zH+)sQa!8|!Se^xN`-}Q&CA1!XV5DM?Fb+D*Y0(>TBniUszzTqw$02<CF<%H<<S2^3
+zgWzg3v?=Qo5TP4tIH@S*GFu)GbOfqJYb1Akc|pB_lUKkCJ#*T-z6mc^;vu_guGqCT
+z8QX%=1P3piI8VVTz>kPbXa2I!OFnpOfoIPaJ?jm<_dZJqxFzJ0QOa2Va?T}(+V<*x
+zt6`^4zTKaMoLDrR1f(iN2?a=%TPB_19pM=+n`CG*IxuEtxPf2@03fF-*vUlR5kEUE
+zRnc>DxQiuCm^AK`As*IxfHN^mdvE0~OAS{`f!@H7(fInzh2`4aWRPulGDijiq++&O
+zbc4+SEZvOFeSt7NXuk{c+U`7`r8K?kytWVK|JM!U2aTg{87?ljY_DNwkhwQ?5ff>z
+zKZe_@`iohL1&Lr6v9#AW)pmhAxxi6tLE~Pc`ZcfS<3GOtztX?Wz*vqt-DJe-U0ykv
+z2%TTu%f0iU<JoVNf_C?=BXp;Pwxi)4X(fX&A#!>|xv1uXp1E2&!Ds<ogL<<Gdtja)
+zd)__#T`FFD<lm7mR`}vl>7OTCql0(1wg#{HPa0sQKQCn0<hpL;+mn#56y<R+R8S?G
+z15WqLBZNM{fiuqP)jpM(JN;Xk=cq~5y<T-|=jo<^h0JUO!#~+{yvAi(E-Ip{j0o9o
+z;QT9hL(AJrfXg#`W4z9>Teti>ofHY14#WUdN4CrlYD|Ibt`d#1)S)$JnqPxNPkb5P
+z^d4=M_T}`<s8W$P8*bPYNWX$Cpq07U;EO38UUad85$oe>KDDrzFeTrg81<EvHJWtF
+zYJ@8g_#dSIi*&|OZrKjb-*g&?SC3}^c&GffZuuK$#csu@F)VtB%{gF4kZMC>-qm~V
+z&LSZ$#Gd&htdPWmou1k6puNr@rG`w@Tjz3cp<SVq2>y&ZM}A*z<vovp!+Udmu2%rK
+ztKyB(GBMOQM&qM1-!p%NjapqWvel|oygxf6N(rus%m^);Lv;xe+^ZTx4GV#puI&_V
+zuecw2ZypBH9E8q_3xs3d7kOne=?F~rIZR(zuS$hc>OFTOznGEi^$f3``)%k9+CC2j
+zT9#9bhRS4!8a7l=Z+#ORlxP5w-WYJ%&K5KMM6RXzvDfzCMi*ch!DhC}tL>$<b1D%M
+zr#TBi=S0b;awIB?HwK-uQrmV{5o6{vLGsQXs%h-`Otq$FW_ODDJ^nPj(SmsHp10nz
+zrvtAqfnRw7dgguiW;C(=?~?=dV+JZ{LgRk8t--ao*l@}HiV+T^5&#ETacmZ|-rCr7
+zok7dd#^hB@^tIG6vWS@?&}mBFE~QioSPk}%b!yue@R&P~qXE+Df5(w9$jkzvgbSlX
+zc0Lw$?y<Zv!rv|T8%6*mQVGM}d+t3yB`!tc86gik&Z8x~`&qeX5Q~|P>#|PIeBXn(
+zoNJlSh9N{F!)2%N&}S1rn|H(D)z#B|CICCJvGbB;B^uHVYd~sMIvMOi0F9xTtZNXg
+zGqp63Tut|u(7p^BRA?9(ID4LECZAjAIEM}hgUqbSx84XT8VfmltxfjCE@B{&>I8>l
+z=iQQ0R>dhFHt0(H9mS-m@%FduPp+i=Od(Auu%LBy2*r}keoMm;gs3|$6I!a23t{Ui
+z7{)3=N5=-w9PiqbnQUUJoD1q&7o=m%ba|Cn(ftOr>!8DOhj48<({EsxJL3cyNKXPw
+z1jAE_qX+u_gAaI+Gu15t{H%1a+rjgw$S6d&qiz{`0|t3ujf(p(v&siCyqPIr3!Kef
+zW`!g-@UHjn;Q37P_7qOLQ|fiTUlFv!SG{|&Epzd5@H|^hhK&u|{-cazhLp4=O0+e*
+zym&t0yf@ddb{yRWZ6Y2F5JRA+h~7QdQ&T>WKPQ}jCMNx)woHd;GTGb1lFxq76tH29
+zOd82RGM6*xP2K3lIVI-%ne`T{PUimd#>%aZS;w~gSw3--cpixIg1GEQZ0Gw}xAOB>
+zL2iZ_8x~%goMbelgQ|ReIW?0oZDb%AcR>46Idq$47~xXYv6*O#Wzgo(P=H7cCYhA$
+zphMB-z$*(oQ6~7IPRrDH%noX=+*A%u1&8we=Gd*~edRZXfm4Ym8b+%K+3~=fwMdXQ
+zIUUl8861>EIVx(2h103anpn0zJ+UMh>Kg*MCW>~3+_!$$0hQ7MAfK(o6Vto$rCm+b
+zv1R;c1~>YoZVGO9xbs4%oKO#_fVJC9odyH7HEbk2ZO|ikCz^JoKQvDkBDcuq)f@lb
+z=ogKhpPCX2C$kYwZ)XV@t_WCR6qZF--Ls|nn%44x0P<kWyTz#Uo)Z@L1KrnwJs4rJ
+z7juW8VitVwStG|2l;)qZeVr*KEeA}k)~q&YLom=8i*+JP^Z;$=8u1taa5)4?S+>_S
+z0*vasW&p_1@>S_T)5+Y3z?J&*hS$upU#A0Jk{xq5Fuw!SOfWGmcP55~kkwFW_10{k
+z1VcJu8w9eMF$HFMQmcv0_HYRXua31nFXd5+CuIn1xvpuQ4FLPd1VVpLqG@d=uw&1X
+z{WU}|z}OtLI~mR^tZ1;mcn4&hlo#bf3!&z!tmzIjuMZ6v&PX0HqI3X;9RM_5>RcPc
+zGf1`+Nvx;I@dKFeskP)<U4&7kzDyQ!xVBMHJ(uV`5FDscWy{>qfcb!*H&#jsT}$09
+zvrr@&agql@C<*RHmQF_4HTLyEwaO0@HGZ&EP4BAM+rSGUBS>E{YMK+JrSG;=;zD-g
+zdF9k3kg92ewk2W-!e7=J04=2j*}S&<CN$*_;y@)Ho7Cb>9c*UMNNcW9h|LX$y_71&
+z)HZiD#d_Y&q<#bJA7E)6qAh4UsINef?idS;bUZLpDZqB4b8UFR8HHiq1k;Dmzu7bj
+zPrOr)Rd{x4%warC$YVz`HujJ}X!lInlE(wXvEg62ejc>h>eA8hao5Z$P2c@QsAKgR
+zO2>#6A>0rGonFX?9-sw4@7^o~-Z`Rbmpc(m6`n?;JqWgoq*NPn!OWg{EMqtrh`F9u
+zLrNFtLojz8jc2Po7A&Lt?VqomYBao9L>1WzoO;B4NR5S%9r*f0AMBDXOycYV3#V4}
+z3L)AoRnuLq>H#~J-eR{3ar0Px`xr6A4HJzbsvF+CECQV~z~19xQq@K`hQ|dd(->W1
+zA#K1ne#i8*IIl3AA}uC~KtNLgNH+y6?cwQ>cmL2Jo6*3~m1*Mvh9WWWYM|Kd2jO5_
+zEbSshE#7a%61E2=WQ#ORn*>KbR^PeBwW6<w9GmAumU<}{&e^0LPpy=ZrLXEi({x@D
+zBf`P*WJ1V9VnS*;j72x)QOZrov2#r?$wm>Xca4{N$I@G(lqSG#fo?pvgm_Ng5zQnw
+zQEDt}HLS~SS>*g{AwlFTMtK~P)+fWM8)zLhByS1<^)fD8L(~;>C?HyzUL-?vrW-J{
+zU1?s1194T%dP}eEbu%Hyruly_r8UyilGx1v-~t*u1xWu4IZK9Jz}T0lOR`@K01Uz|
+z(<b5ew5-NHvY`P=Ls`rlCaY|wm2@FdHvEQzUlA>xiT=J>80x|SB7=U$qzUNIQA*W{
+z<%ZaiNw7ZBVVR0k8iN4uu$&N9z%T+*Td0&KF1BK2EJ^zEWH04Ggzh=6bX|~+N)_ii
+z4cVix+#T^*o3~x#vY2X)L~ZDrQtMi`!$4;;_Bn)3ui!g8?c&(@z$=gVFf{)+>TM#1
+z^wJnKx`WU$Y;nZWwuCGjL!4AJ9K&jp4_p&yp&QjIb*$4*h;{&T^S}(Xc<rspy|JUi
+z_;w#0&ijtMT`jNkftCT2eMdYLoawYc8kUJ0mvvZ3UKN2zbR^Xf;;l?ed+JQ#W?9&l
+zP~1&zBDYj%-Nnl6Iv6^j#EtMaD{m`%t=PauDkaD7r3~8S4bn)>yY*afMFgiJRxmUQ
+zaJ7`J^Po-P#1PSubUxgTYh-M7qQZ~SXoU{f{(6>?U4|ydV&viq!l0y=AfqJrW$pIh
+znlbF~S!Sh_$fylvS0r9(&J1A}4YC`cU^qENgGVc6P*<@`v^}S}n=&2AU`W#vL$}zC
+z0fTb=IT6VWou%QSw8-VAVWDmqa4<D$(qtDwEyej1l7$;Imrx)r(c$2&8XoVHAh4|6
+z9V`ad<T-$CE-+90p^WIw5}uC|#sS3j86i0)Iy81EU?40*L2O>smD8u)nK;;~F+7Zi
+zF<1!EwAN>Ev%rQx+7`%R{3%5xLPy0IvF`%og<@<^VcQsM_QaxNMEqdvYTPB^Bv83V
+zfK*BXtrWa(9MVA_+|vtsn0T$BA)rG;6oRCtjcS|qr^wrPqhVh7b%dV8wy}mKmMS$x
+zdaBSs4)TidLjQMGPB<D`q&74yN{N&X|8QF}g4<1SDP~EI>o%y;-^Yj2tXh8Uujzd(
+ze$jj^l~4MM!lt<OPmZA>l^{Jj7$)l@9BI>X6{g`(05IJNYno7<t>?QzJR7>SV<0n>
+z_BbdC+!=v6hHR*@a%h0wjsy4ArHOlBTHWUsUhCWqe$=NPHeGYqN3kZ9&^D}wR5MEU
+z?C7&gETxRjk-xMlq2tg~I!-@IIe65T!5T~MwR{H2$R(9ZWRadK=+Bdq{wpS5D@sh8
+zs`;563b7mrfFiVN9T=V)m1~qh%3I_Gmve}p;b;y%I}U_mwFC;m9Eg$BB$Xl8scdO1
+z;Tf_eFb*uAg>!+P0Wa{y6qj6l$#p}4m8eUh2)c@>kuZF=q2`ULO_7o)rKOOKH7Nrl
+z#R9?ddG<?^rYxF8hJw0s;aw23%FxR{MXD!bb<0zz=2)!eE}OK)i<;(D%r!hJDQev%
+ze)zy$;*>7-x_~xGDWzl%VX^cZH|iv2@{(VE#@MHAS<;`tJyEoVy$ak1?l2Dr*wH2g
+z+VjwyD9XsNxu@<Gw(r8k&O0tBH+y)l4$}L9UM=vjweoK;C6=IZ%qIgVB>K$V=8!A#
+zd3Mp_Es76<tBvwl7bnkv8>?BE#JnQ9nqA6rWZ8z|ge=~g0e*ctZOw2)`;`ZL);@WT
+zdzHt%3~goZ%u^`6l3~yH@YZ;)i_(RZQ}X!6<9a$$Fve`Ierb3UmF?iIFRJ^tWJQr2
+I%6}gG3Dg1bF8}}l
+
+literal 0
+HcmV?d00001
+
+diff --git a/scripts/seo-check.mjs b/scripts/seo-check.mjs
+new file mode 100644
+index 0000000..44e57d4
+--- /dev/null
++++ b/scripts/seo-check.mjs
+@@ -0,0 +1,96 @@
++#!/usr/bin/env node
++/**
++ * SEO smoke test — checks what a crawler receives (raw HTML, no JavaScript).
++ *
++ *   npm run build && npm start            # in one terminal
++ *   npm run seo:check                     # checks http://localhost:3000
++ *   npm run seo:check -- https://your-domain.com
++ *
++ * Exits with code 1 if any check fails, so it can run in CI.
++ */
++
++const base = (process.argv[2] || "http://localhost:3000").replace(/\/+$/, "");
++const pages = ["/", "/about", "/projects", "/contact"];
++
++let failures = 0;
++const ok = (msg) => console.log(`  ✓ ${msg}`);
++const fail = (msg) => {
++  failures += 1;
++  console.log(`  ✗ ${msg}`);
++};
++const check = (condition, msg) => (condition ? ok(msg) : fail(msg));
++
++const attr = (html, re) => html.match(re)?.[1];
++
++async function checkPage(path) {
++  console.log(`\n${path}`);
++  const res = await fetch(base + path, { redirect: "manual" });
++  check(res.status === 200, `status 200 (got ${res.status})`);
++  const html = await res.text();
++
++  const title = attr(html, /<title[^>]*>([^<]*)<\/title>/i);
++  check(title && title.length >= 10 && title.length <= 70, `title 10–70 chars: "${title}"`);
++
++  const description = attr(html, /<meta name="description" content="([^"]*)"/i);
++  check(description && description.length >= 50 && description.length <= 160, `meta description 50–160 chars (${description?.length ?? 0})`);
++
++  const canonical = attr(html, /<link rel="canonical" href="([^"]+)"/i);
++  const samePath = (url) => {
++    try {
++      return new URL(url).pathname.replace(/\/$/, "") === path.replace(/\/$/, "");
++    } catch {
++      return false;
++    }
++  };
++  check(canonical && samePath(canonical), `canonical points to this page: ${canonical}`);
++  check(canonical && !canonical.includes("localhost") || base.includes("localhost"), "canonical is not localhost in production");
++
++  check(!/<meta name="robots" content="[^"]*noindex/i.test(html), "not noindexed");
++  check(/<meta property="og:image" content="[^"]+"/i.test(html), "has og:image");
++
++  const h1s = html.match(/<h1[\s>]/gi) ?? [];
++  check(h1s.length === 1, `exactly one <h1> (found ${h1s.length})`);
++
++  const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/gi)];
++  check(blocks.length > 0, `has JSON-LD (${blocks.length} block)`);
++  for (const [, json] of blocks) {
++    try {
++      JSON.parse(json);
++      ok("JSON-LD parses");
++    } catch {
++      fail("JSON-LD is invalid JSON");
++    }
++  }
++
++  const unoptimizedRaster = [...html.matchAll(/<img[^>]+src="(\/[^"]+\.(?:png|jpe?g))"/gi)].map((m) => m[1]);
++  check(unoptimizedRaster.length === 0, `no raw PNG/JPEG <img> (all via /_next/image)${unoptimizedRaster.length ? ": " + unoptimizedRaster.join(", ") : ""}`);
++}
++
++async function main() {
++  console.log(`SEO check for ${base}`);
++  for (const path of pages) await checkPage(path);
++
++  console.log("\n/robots.txt");
++  const robots = await (await fetch(`${base}/robots.txt`)).text();
++  check(/Sitemap:\s*\S+/i.test(robots), "declares Sitemap");
++  check(!/Disallow:\s*\/\s*$/m.test(robots) || base.includes("localhost"), "does not block the whole site");
++
++  console.log("\n/sitemap.xml");
++  const sitemapRes = await fetch(`${base}/sitemap.xml`);
++  check(sitemapRes.status === 200, "status 200");
++  const sitemap = await sitemapRes.text();
++  const locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => new URL(m[1]).pathname.replace(/\/$/, ""));
++  for (const path of pages) check(locs.includes(path.replace(/\/$/, "")), `lists ${path}`);
++
++  console.log("\n/this-page-does-not-exist");
++  const missing = await fetch(`${base}/this-page-does-not-exist`);
++  check(missing.status === 404, `returns 404 (got ${missing.status})`);
++
++  console.log(failures ? `\n${failures} check(s) failed.` : "\nAll checks passed.");
++  process.exit(failures ? 1 : 0);
++}
++
++main().catch((error) => {
++  console.error(error);
++  process.exit(1);
++});
+diff --git a/src/app/about/page.tsx b/src/app/about/page.tsx
+index 525625d..009bf02 100644
+--- a/src/app/about/page.tsx
++++ b/src/app/about/page.tsx
+@@ -1,5 +1,37 @@
++import type { Metadata } from "next";
+ import { AboutPage } from "@/modules/aboutPage";
++import { JsonLd } from "@/components/JsonLd";
++import {
++  breadcrumbJsonLd,
++  buildPageMetadata,
++  jsonLdGraph,
++  personJsonLd,
++  profilePageJsonLd,
++} from "@/lib/seo";
++
++const title = "About & Resume";
++
++export const metadata: Metadata = buildPageMetadata({
++  title,
++  description:
++    "Resume of Arpit Patidar: full-stack engineer at Metaverse Ventures building cross-chain payment platforms. Experience, projects, skills and education.",
++  path: "/about",
++});
+ 
+ export default function About() {
+-  return <AboutPage />;
++  return (
++    <>
++      <JsonLd
++        data={jsonLdGraph(
++          personJsonLd(),
++          profilePageJsonLd("/about", `${title} | Arpit Patidar`),
++          breadcrumbJsonLd([
++            { name: "Home", path: "/" },
++            { name: "About", path: "/about" },
++          ]),
++        )}
++      />
++      <AboutPage />
++    </>
++  );
+ }
+diff --git a/src/app/api/contact/route.ts b/src/app/api/contact/route.ts
+index 1eca70c..3262982 100644
+--- a/src/app/api/contact/route.ts
++++ b/src/app/api/contact/route.ts
+@@ -1,54 +1,97 @@
+ import { NextResponse } from "next/server";
+ import { sendMail } from "@/lib/mail";
+ 
++/* ─── Limits ──────────────────────────────────────────────── */
++
++const MAX_LENGTH = {
++  firstName: 80,
++  lastName: 80,
++  email: 254,
++  subject: 200,
++  message: 5000,
++} as const;
++
++type ContactField = keyof typeof MAX_LENGTH;
++
++const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
++
++/*
++ * Best-effort rate limit: 5 messages per IP per 10 minutes, per server
++ * instance. Good enough to stop casual abuse of the SMTP account; use a
++ * shared store (e.g. Upstash/Redis) if you need a hard guarantee.
++ */
++const WINDOW_MS = 10 * 60 * 1000;
++const MAX_PER_WINDOW = 5;
++const hits = new Map<string, number[]>();
++
++function isRateLimited(ip: string): boolean {
++  const now = Date.now();
++  const recent = (hits.get(ip) ?? []).filter((t) => now - t < WINDOW_MS);
++  recent.push(now);
++  hits.set(ip, recent);
++  if (hits.size > 5000) hits.clear(); // bound memory
++  return recent.length > MAX_PER_WINDOW;
++}
++
++function clientIp(request: Request): string {
++  return (
++    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
++    request.headers.get("x-real-ip") ||
++    "unknown"
++  );
++}
++
++/* ─── Handler ─────────────────────────────────────────────── */
++
+ export async function POST(request: Request) {
++  let body: Record<string, unknown>;
+   try {
+-    const data = await request.json();
+-    const { firstName, lastName, email, subject, message } = data;
+-
+-    // Direct basic validation (as requested: no libraries)
+-    if (!firstName || !lastName || !email || !subject || !message) {
+-      return NextResponse.json(
+-        { error: "All fields are required" },
+-        { status: 400 },
+-      );
+-    }
++    body = await request.json();
++  } catch {
++    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
++  }
+ 
+-    // Basic email format validation
++  // Honeypot: real visitors never fill this hidden field. Pretend success.
++  if (typeof body.website === "string" && body.website.trim() !== "") {
++    return NextResponse.json({ message: "Email sent successfully" }, { status: 200 });
++  }
+ 
+-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+-    if (!emailRegex.test(email)) {
+-      return NextResponse.json(
+-        { error: "Invalid email address" },
+-        { status: 400 },
+-      );
++  if (isRateLimited(clientIp(request))) {
++    return NextResponse.json(
++      { error: "Too many messages. Please try again in a few minutes." },
++      { status: 429 },
++    );
++  }
++
++  const fields = {} as Record<ContactField, string>;
++  for (const key of Object.keys(MAX_LENGTH) as ContactField[]) {
++    const value = body[key];
++    if (typeof value !== "string" || value.trim() === "") {
++      return NextResponse.json({ error: "All fields are required" }, { status: 400 });
++    }
++    if (value.length > MAX_LENGTH[key]) {
++      return NextResponse.json({ error: `${key} is too long` }, { status: 400 });
+     }
++    fields[key] = value.trim();
++  }
+ 
+-    // Send the email
+-    const info = await sendMail({
+-      firstName,
+-      lastName,
+-      email,
+-      subject,
+-      message,
+-    });
++  if (!EMAIL_REGEX.test(fields.email)) {
++    return NextResponse.json({ error: "Invalid email address" }, { status: 400 });
++  }
+ 
+-    return NextResponse.json(
+-      { message: "Email sent successfully" },
+-      { status: 200 },
+-    );
+-  } catch (error: any) {
+-    console.error("Contact API Server Error Details:", {
+-      message: error.message,
+-      code: error.code,
+-      command: error.command,
+-      response: error.response,
++  try {
++    await sendMail(fields);
++    return NextResponse.json({ message: "Email sent successfully" }, { status: 200 });
++  } catch (error: unknown) {
++    // Log details server-side only; never leak SMTP internals to the browser.
++    const err = error as { message?: string; code?: string; command?: string };
++    console.error("Contact API: failed to send email", {
++      message: err.message,
++      code: err.code,
++      command: err.command,
+     });
+-
+     return NextResponse.json(
+-      {
+-        error: error.message || "Failed to send email. Please try again later.",
+-      },
++      { error: "Failed to send email. Please try again later." },
+       { status: 500 },
+     );
+   }
+diff --git a/src/app/contact/page.tsx b/src/app/contact/page.tsx
+index f7f7aec..2af52d9 100644
+--- a/src/app/contact/page.tsx
++++ b/src/app/contact/page.tsx
+@@ -1,5 +1,27 @@
+-import { ContactPage } from "@/modules";
++import type { Metadata } from "next";
++import { ContactPage } from "@/modules/contactPage";
++import { JsonLd } from "@/components/JsonLd";
++import { breadcrumbJsonLd, buildPageMetadata, jsonLdGraph } from "@/lib/seo";
++
++export const metadata: Metadata = buildPageMetadata({
++  title: "Contact",
++  description:
++    "Contact Arpit Patidar about a full-stack, Next.js or Web3 project. Send a message and get a reply directly by email.",
++  path: "/contact",
++});
+ 
+ export default function Contact() {
+-  return <ContactPage />;
++  return (
++    <>
++      <JsonLd
++        data={jsonLdGraph(
++          breadcrumbJsonLd([
++            { name: "Home", path: "/" },
++            { name: "Contact", path: "/contact" },
++          ]),
++        )}
++      />
++      <ContactPage />
++    </>
++  );
+ }
+diff --git a/src/app/globals.css b/src/app/globals.css
+index 99f8c0b..c64aebe 100644
+--- a/src/app/globals.css
++++ b/src/app/globals.css
+@@ -161,4 +161,8 @@
+     background-color: var(--accent);
+     color: var(--background);
+   }
+-}
+\ No newline at end of file
++}
++/* Intro loader plays once per session (flag set by the inline script in layout.tsx). */
++html[data-intro-seen] [data-app-loader] {
++  display: none;
++}
+diff --git a/src/app/layout.tsx b/src/app/layout.tsx
+index cffb6c7..c584026 100644
+--- a/src/app/layout.tsx
++++ b/src/app/layout.tsx
+@@ -1,13 +1,11 @@
+-"use client";
+-
+-import type { Metadata } from "next";
++import type { Metadata, Viewport } from "next";
+ import { Syne, EB_Garamond, Outfit, Dancing_Script } from "next/font/google";
+ import "./globals.css";
+ import { Footer } from "@/modules/landingPage/footer";
+ import { ConnectSection } from "@/modules/landingPage/connect-section";
+-import { MusicProvider } from "@/context/MusicContext";
+-import { AppLoader } from "@/components/AppLoader";
+-import { MusicOverlay } from "@/components/MusicOverlay";
++import { AppShell } from "@/layout/AppShell";
++import { siteConfig } from "@/constants";
++import { getSiteUrl, isProductionDeployment } from "@/lib/seo";
+ 
+ const syne = Syne({
+   variable: "--font-heading",
+@@ -30,6 +28,50 @@ const dancingScript = Dancing_Script({
+   weight: ["400", "500", "600", "700"],
+ });
+ 
++export const metadata: Metadata = {
++  metadataBase: new URL(getSiteUrl()),
++  title: {
++    default: siteConfig.title,
++    template: `%s | ${siteConfig.name}`,
++  },
++  description: siteConfig.description,
++  applicationName: `${siteConfig.name} Portfolio`,
++  authors: [{ name: siteConfig.name, url: "/" }],
++  creator: siteConfig.name,
++  category: "technology",
++  alternates: { canonical: "/" },
++  openGraph: {
++    type: "website",
++    siteName: `${siteConfig.name} — Portfolio`,
++    locale: siteConfig.locale,
++    url: "/",
++    title: siteConfig.title,
++    description: siteConfig.description,
++  },
++  twitter: {
++    card: "summary_large_image",
++    creator: "@devArpit0",
++    title: siteConfig.title,
++    description: siteConfig.description,
++  },
++  // Preview/staging deployments must never be indexed.
++  robots: isProductionDeployment()
++    ? { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" } }
++    : { index: false, follow: false },
++  formatDetection: { telephone: false },
++};
++
++export const viewport: Viewport = {
++  themeColor: "#050505",
++  colorScheme: "dark",
++};
++
++/*
++ * The intro loader plays once per browser session. This runs before first
++ * paint so returning visitors never see a flash of the loader.
++ */
++const introSeenScript = `try{if(sessionStorage.getItem("intro-seen")==="1")document.documentElement.setAttribute("data-intro-seen","")}catch(e){}`;
++
+ export default function RootLayout({
+   children,
+ }: Readonly<{
+@@ -38,16 +80,19 @@ export default function RootLayout({
+   return (
+     <html
+       lang="en"
++      data-scroll-behavior="smooth"
++      suppressHydrationWarning
+       className={`${syne.variable} ${ebGaramond.variable} ${outfit.variable} ${dancingScript.variable} h-full antialiased dark`}
+     >
++      <head>
++        <script dangerouslySetInnerHTML={{ __html: introSeenScript }} />
++      </head>
+       <body className="min-h-full flex flex-col">
+-        <MusicProvider>
+-          <AppLoader />
+-          <MusicOverlay />
++        <AppShell>
+           {children}
+           <ConnectSection />
+           <Footer />
+-        </MusicProvider>
++        </AppShell>
+       </body>
+     </html>
+   );
+diff --git a/src/app/not-found.tsx b/src/app/not-found.tsx
+new file mode 100644
+index 0000000..d5bf5be
+--- /dev/null
++++ b/src/app/not-found.tsx
+@@ -0,0 +1,34 @@
++import type { Metadata } from "next";
++import Link from "next/link";
++import { navLinks } from "@/constants";
++
++export const metadata: Metadata = {
++  title: "Page not found",
++  robots: { index: false, follow: true },
++};
++
++/** Real 404 (status code 404), styled like the rest of the site, with links back in. */
++export default function NotFound() {
++  return (
++    <main className="min-h-[70vh] w-full bg-[#050505] text-white flex flex-col items-center justify-center gap-10 px-6 py-24 text-center">
++      <span className="text-accent text-xs font-mono tracking-[0.4em] font-bold uppercase">(404)</span>
++      <h1 className="text-5xl sm:text-7xl md:text-8xl font-heading font-black uppercase tracking-tighter">
++        Lost in<br />the grid
++      </h1>
++      <p className="max-w-md text-sm sm:text-base text-white/50">
++        This page doesn&apos;t exist or has moved. Try one of these instead:
++      </p>
++      <nav aria-label="Site pages" className="flex flex-wrap justify-center gap-3">
++        {navLinks.map((link) => (
++          <Link
++            key={link.href}
++            href={link.href}
++            className="px-6 py-3 rounded-full border border-white/10 hover:bg-white/5 text-white/70 hover:text-white text-[10px] font-mono tracking-[0.2em] font-bold uppercase transition-colors"
++          >
++            {link.label}
++          </Link>
++        ))}
++      </nav>
++    </main>
++  );
++}
+diff --git a/src/app/opengraph-image.tsx b/src/app/opengraph-image.tsx
+new file mode 100644
+index 0000000..bdd5ec9
+--- /dev/null
++++ b/src/app/opengraph-image.tsx
+@@ -0,0 +1,70 @@
++import { readFile } from "node:fs/promises";
++import { join } from "node:path";
++import { ImageResponse } from "next/og";
++import { siteConfig } from "@/constants";
++
++/*
++ * Social preview card (LinkedIn, X, WhatsApp, Slack…), generated at build
++ * time. Applies to every page; add an opengraph-image.tsx inside a route
++ * folder to override it for that page.
++ */
++
++export const alt = `${siteConfig.name} — ${siteConfig.jobTitle}`;
++export const size = { width: 1200, height: 630 };
++export const contentType = "image/png";
++
++export default async function OpengraphImage() {
++  const portrait = await readFile(join(process.cwd(), "public/self1.jpeg"), "base64");
++
++  return new ImageResponse(
++    (
++      <div
++        style={{
++          width: "100%",
++          height: "100%",
++          display: "flex",
++          background: "#050505",
++          color: "#ffffff",
++          fontFamily: "sans-serif",
++        }}
++      >
++        <div
++          style={{
++            flex: 1,
++            display: "flex",
++            flexDirection: "column",
++            justifyContent: "space-between",
++            padding: "72px 64px",
++          }}
++        >
++          <div style={{ display: "flex", fontSize: 22, letterSpacing: 8, color: "#FF5E41" }}>
++            (PORTFOLIO)
++          </div>
++          <div style={{ display: "flex", flexDirection: "column" }}>
++            <div style={{ display: "flex", fontSize: 88, fontWeight: 800, lineHeight: 0.95, letterSpacing: -3 }}>
++              ARPIT PATIDAR
++            </div>
++            <div style={{ display: "flex", marginTop: 28, fontSize: 38, color: "#FF5E41" }}>
++              {siteConfig.jobTitle}
++            </div>
++            <div style={{ display: "flex", marginTop: 18, fontSize: 26, color: "rgba(255,255,255,0.55)" }}>
++              Next.js · Node.js · TypeScript · Web3 payments
++            </div>
++          </div>
++          <div style={{ display: "flex", fontSize: 20, letterSpacing: 6, color: "rgba(255,255,255,0.4)" }}>
++            {siteConfig.location.toUpperCase()}
++          </div>
++        </div>
++        {/* eslint-disable-next-line @next/next/no-img-element -- next/og renders plain <img> */}
++        <img
++          src={`data:image/jpeg;base64,${portrait}`}
++          alt=""
++          width={413}
++          height={630}
++          style={{ objectFit: "cover" }}
++        />
++      </div>
++    ),
++    size,
++  );
++}
+diff --git a/src/app/page.tsx b/src/app/page.tsx
+index bb5fe16..9a55fb5 100644
+--- a/src/app/page.tsx
++++ b/src/app/page.tsx
+@@ -1,8 +1,35 @@
+-import { LandingPage } from "@/modules";
++import type { Metadata } from "next";
++import { preload } from "react-dom";
++import { LandingPage } from "@/modules/landingPage";
++import { JsonLd } from "@/components/JsonLd";
++import { siteConfig } from "@/constants";
++import {
++  buildPageMetadata,
++  jsonLdGraph,
++  personJsonLd,
++  profilePageJsonLd,
++  websiteJsonLd,
++} from "@/lib/seo";
++
++export const metadata: Metadata = buildPageMetadata({
++  description: siteConfig.description,
++  path: "/",
++});
+ 
+ export default function Home() {
++  // The hero's background face is a CSS background (normally discovered late);
++  // preloading it lets the browser fetch it with the HTML, improving LCP.
++  preload("/bg/herobg.webp", { as: "image", fetchPriority: "high" });
++
+   return (
+     <main className="min-h-screen">
++      <JsonLd
++        data={jsonLdGraph(
++          personJsonLd(),
++          websiteJsonLd(),
++          profilePageJsonLd("/", siteConfig.title),
++        )}
++      />
+       <LandingPage />
+     </main>
+   );
+diff --git a/src/app/projects/page.tsx b/src/app/projects/page.tsx
+index 517fe74..cd52cd1 100644
+--- a/src/app/projects/page.tsx
++++ b/src/app/projects/page.tsx
+@@ -1,10 +1,42 @@
++import type { Metadata } from "next";
+ import { ProjectsPage } from "@/modules/projectsPage";
++import { PROJECTS } from "@/constants/projects";
++import { JsonLd } from "@/components/JsonLd";
++import {
++  breadcrumbJsonLd,
++  buildPageMetadata,
++  jsonLdGraph,
++  projectListJsonLd,
++} from "@/lib/seo";
+ 
+-export const metadata = {
+-  title: "Projects | Arpit Patidar",
+-  description: "A showcase of selected works and projects built by Arpit Patidar.",
+-};
++export const metadata: Metadata = buildPageMetadata({
++  title: "Projects: Web3, DeFi & Next.js Apps",
++  description:
++    "Selected projects by Arpit Patidar: stablecoin and DeFi payment apps, Web3 platforms, SaaS and e-commerce built with Next.js, NestJS, Node.js and Supabase.",
++  path: "/projects",
++});
+ 
+ export default function ProjectsRoute() {
+-  return <ProjectsPage />;
++  return (
++    <>
++      <JsonLd
++        data={jsonLdGraph(
++          projectListJsonLd(
++            PROJECTS.map(({ title, category, year, link, src }) => ({
++              title,
++              category,
++              year,
++              link,
++              image: src,
++            })),
++          ),
++          breadcrumbJsonLd([
++            { name: "Home", path: "/" },
++            { name: "Projects", path: "/projects" },
++          ]),
++        )}
++      />
++      <ProjectsPage />
++    </>
++  );
+ }
+diff --git a/src/app/robots.ts b/src/app/robots.ts
+new file mode 100644
+index 0000000..d73f35c
+--- /dev/null
++++ b/src/app/robots.ts
+@@ -0,0 +1,14 @@
++import type { MetadataRoute } from "next";
++import { absoluteUrl, isProductionDeployment } from "@/lib/seo";
++
++export default function robots(): MetadataRoute.Robots {
++  // Preview deployments are blocked entirely so they never compete with production.
++  if (!isProductionDeployment()) {
++    return { rules: { userAgent: "*", disallow: "/" } };
++  }
++
++  return {
++    rules: { userAgent: "*", allow: "/", disallow: ["/api/"] },
++    sitemap: absoluteUrl("/sitemap.xml"),
++  };
++}
+diff --git a/src/app/sitemap.ts b/src/app/sitemap.ts
+new file mode 100644
+index 0000000..1be8639
+--- /dev/null
++++ b/src/app/sitemap.ts
+@@ -0,0 +1,9 @@
++import type { MetadataRoute } from "next";
++import { absoluteUrl, indexablePages } from "@/lib/seo";
++
++export default function sitemap(): MetadataRoute.Sitemap {
++  return indexablePages.map(({ path, lastModified }) => ({
++    url: absoluteUrl(path),
++    lastModified: new Date(lastModified),
++  }));
++}
+diff --git a/src/components/AppConnect/index.tsx b/src/components/AppConnect/index.tsx
+index 498c60f..00376de 100644
+--- a/src/components/AppConnect/index.tsx
++++ b/src/components/AppConnect/index.tsx
+@@ -74,35 +74,35 @@ export const AppConnect = () => {
+             >
+                {/* Center Top */}
+                <div className="absolute top-[16px] sm:top-[20px] left-1/2 -translate-x-1/2">
+-                  <Link href={socialLinks.twitter} target="_blank" className="flex items-center justify-center bg-white/10 hover:bg-accent rounded-full text-white hover:text-black transition-all duration-300 w-[34px] h-[34px] sm:w-[38px] sm:h-[38px]">
++                  <Link href={socialLinks.twitter} target="_blank" rel="noopener noreferrer" aria-label="X (Twitter)" className="flex items-center justify-center bg-white/10 hover:bg-accent rounded-full text-white hover:text-black transition-all duration-300 w-[34px] h-[34px] sm:w-[38px] sm:h-[38px]">
+                      <XIcon size={14} />
+                   </Link>
+                </div>
+ 
+                {/* Left Mid-Top */}
+                <div className="absolute top-[48px] sm:top-[55px] left-[16px] sm:left-[20px]">
+-                  <Link href={socialLinks.github} target="_blank" className="flex items-center justify-center bg-white/10 hover:bg-accent rounded-full text-white hover:text-black transition-all duration-300 w-[34px] h-[34px] sm:w-[38px] sm:h-[38px]">
++                  <Link href={socialLinks.github} target="_blank" rel="noopener noreferrer" aria-label="GitHub" className="flex items-center justify-center bg-white/10 hover:bg-accent rounded-full text-white hover:text-black transition-all duration-300 w-[34px] h-[34px] sm:w-[38px] sm:h-[38px]">
+                      <GithubIcon size={14} />
+                   </Link>
+                </div>
+ 
+                {/* Right Mid-Top */}
+                <div className="absolute top-[48px] sm:top-[55px] right-[16px] sm:right-[20px]">
+-                  <Link href={socialLinks.linkedin} target="_blank" className="flex items-center justify-center bg-white/10 hover:bg-accent rounded-full text-white hover:text-black transition-all duration-300 w-[34px] h-[34px] sm:w-[38px] sm:h-[38px]">
++                  <Link href={socialLinks.linkedin} target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" className="flex items-center justify-center bg-white/10 hover:bg-accent rounded-full text-white hover:text-black transition-all duration-300 w-[34px] h-[34px] sm:w-[38px] sm:h-[38px]">
+                      <LinkedinIcon size={14} />
+                   </Link>
+                </div>
+ 
+                {/* Bottom Left */}
+                <div className="absolute bottom-[32px] sm:bottom-[40px] left-[28px] sm:left-[35px]">
+-                  <Link href={routes.projects} className="flex items-center justify-center bg-white/10 hover:bg-accent rounded-full text-white hover:text-black transition-all duration-300 w-[34px] h-[34px] sm:w-[38px] sm:h-[38px]">
++                  <Link href={routes.projects} aria-label="Projects" className="flex items-center justify-center bg-white/10 hover:bg-accent rounded-full text-white hover:text-black transition-all duration-300 w-[34px] h-[34px] sm:w-[38px] sm:h-[38px]">
+                      <FolderOpen size={14} />
+                   </Link>
+                </div>
+ 
+                {/* Bottom Right */}
+                <div className="absolute bottom-[32px] sm:bottom-[40px] right-[28px] sm:right-[35px]">
+-                  <Link href={routes.contact} className="flex items-center justify-center bg-white/10 hover:bg-accent rounded-full text-white hover:text-black transition-all duration-300 w-[34px] h-[34px] sm:w-[38px] sm:h-[38px]">
++                  <Link href={routes.contact} aria-label="Contact" className="flex items-center justify-center bg-white/10 hover:bg-accent rounded-full text-white hover:text-black transition-all duration-300 w-[34px] h-[34px] sm:w-[38px] sm:h-[38px]">
+                      <Mail size={14} />
+                   </Link>
+                </div>
+diff --git a/src/components/AppLoader/index.tsx b/src/components/AppLoader/index.tsx
+index 99d067d..9c7d25b 100644
+--- a/src/components/AppLoader/index.tsx
++++ b/src/components/AppLoader/index.tsx
+@@ -21,7 +21,15 @@ export const AppLoader = () => {
+   const [index, setIndex] = useState(0);
+   const [loading, setLoading] = useState(true);
+ 
++  // Returning visitors (same browser session) skip the intro.
+   useEffect(() => {
++    if (document.documentElement.hasAttribute("data-intro-seen")) {
++      setLoading(false);
++    }
++  }, []);
++
++  useEffect(() => {
++    if (!loading) return;
+     if (index < LANGUAGES.length - 1) {
+       const timer = setTimeout(() => {
+         setIndex(index + 1);
+@@ -34,11 +42,16 @@ export const AppLoader = () => {
+       }, 1000);
+       return () => clearTimeout(timer);
+     }
+-  }, [index]);
++  }, [index, loading]);
+ 
+   // Dispatch event when loader finishes so music can start
+   useEffect(() => {
+     if (!loading) {
++      try {
++        sessionStorage.setItem("intro-seen", "1");
++      } catch {
++        // Storage can be unavailable (private mode); the intro just plays again.
++      }
+       window.dispatchEvent(new CustomEvent("app-loader-complete"));
+     }
+   }, [loading]);
+@@ -54,6 +67,7 @@ export const AppLoader = () => {
+           initial={{ y: 0 }}
+           exit={{ y: "-100%" }}
+           transition={{ duration: 1, ease: [0.76, 0, 0.24, 1] }}
++          data-app-loader=""
+           className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#050505] overflow-hidden"
+         >
+           {/* Grain Texture Overlay */}
+@@ -77,9 +91,9 @@ export const AppLoader = () => {
+                   Initializing Experience
+                 </span>
+               </div>
+-              <h1 className="text-4xl sm:text-6xl md:text-8xl font-heading font-black text-white uppercase tracking-tighter">
++              <p className="text-4xl sm:text-6xl md:text-8xl font-heading font-black text-white uppercase tracking-tighter leading-[0.9]">
+                 {LANGUAGES[index]}
+-              </h1>
++              </p>
+             </motion.div>
+           </div>
+ 
+diff --git a/src/components/JsonLd/index.tsx b/src/components/JsonLd/index.tsx
+new file mode 100644
+index 0000000..9a73e38
+--- /dev/null
++++ b/src/components/JsonLd/index.tsx
+@@ -0,0 +1,13 @@
++/**
++ * Renders schema.org structured data. Server component: the JSON is in the
++ * initial HTML, so crawlers read it without running JavaScript.
++ * `<` is escaped so content can never close the script tag early.
++ */
++export const JsonLd = ({ data }: { data: Record<string, unknown> }) => (
++  <script
++    type="application/ld+json"
++    dangerouslySetInnerHTML={{
++      __html: JSON.stringify(data).replace(/</g, "\\u003c"),
++    }}
++  />
++);
+diff --git a/src/components/MusicPlayer/ControlBar.tsx b/src/components/MusicPlayer/ControlBar.tsx
+index 0e8145d..f6e56be 100644
+--- a/src/components/MusicPlayer/ControlBar.tsx
++++ b/src/components/MusicPlayer/ControlBar.tsx
+@@ -75,7 +75,7 @@ export const ControlBar = ({
+         <div className="flex-1 flex items-center gap-2 sm:gap-3 bg-black/40 rounded-full py-1 px-1 sm:pr-5 border border-white/5 mx-1 sm:mx-4 overflow-hidden min-w-[60px] sm:min-w-[200px]">
+             {/* Album Thumbnail - Always show if possible, or hide on very small */}
+             <div className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-full sm:rounded-[14px] overflow-hidden shrink-0 shadow-lg">
+-                <Image src={currentTrack.coverImg} fill alt="Cover" className="object-cover" unoptimized />
++                <Image src={currentTrack.coverImg} fill sizes="40px" alt="" className="object-cover" />
+                 {!isPlaying && (
+                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                         <div className="w-1 h-2 sm:h-3 bg-white/60 rounded-full animate-pulse mx-0.5" />
+diff --git a/src/components/MusicPlayer/SongCarousel.tsx b/src/components/MusicPlayer/SongCarousel.tsx
+index b91e7a1..5ebfca6 100644
+--- a/src/components/MusicPlayer/SongCarousel.tsx
++++ b/src/components/MusicPlayer/SongCarousel.tsx
+@@ -49,9 +49,9 @@ export const SongCarousel = ({ currentIndex, onSelect }: SongCarouselProps) => {
+                 <Image
+                   src={song.coverImg}
+                   fill
++                  sizes="(min-width: 768px) 280px, (min-width: 640px) 220px, 160px"
+                   alt={song.title}
+                   className="object-cover"
+-                  unoptimized
+                 />
+ 
+                 {/* Active Card Footer Branding (matches image) */}
+diff --git a/src/components/Vinyl/index.tsx b/src/components/Vinyl/index.tsx
+index b2dcdde..ced21f7 100644
+--- a/src/components/Vinyl/index.tsx
++++ b/src/components/Vinyl/index.tsx
+@@ -23,12 +23,13 @@ export const Vinyl = ({ size = 120, className = "", isPlaying = true }: VinylPro
+         transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
+       >
+         {/* Main Texture Image */}
++        {/* 715 KB source shown at ~100 px on every page: let Next resize it. */}
+         <Image
+           src="/Stickers/vinyl.png"
+           fill
+-          alt="Vinyl Record"
++          sizes={`${size}px`}
++          alt=""
+           className="object-cover"
+-          unoptimized
+         />
+         
+         {/* Subtle Conic Gradient for "Grooves" effect */}
+diff --git a/src/constants/config.ts b/src/constants/config.ts
+index 94411ac..92d36ec 100644
+--- a/src/constants/config.ts
++++ b/src/constants/config.ts
+@@ -6,11 +6,29 @@
+ export const siteConfig = {
+   name: "Arpit Patidar",
+   shortName: "Arpit",
+-  title: "Arpit Patidar | Visual Developer",
++  jobTitle: "Full-Stack & Web3 Developer",
++  title: "Arpit Patidar — Full-Stack & Web3 Developer (Next.js, Node.js)",
+   description:
+-    "A showcase of selected works and projects built by Arpit Patidar.",
+-  url: "https://arpitpatidar.com",
+-  locale: "en-US",
++    "Arpit Patidar, full-stack & Web3 developer in India. I build Next.js, Node.js and TypeScript apps: cross-chain payments, stablecoins, SaaS and e-commerce.",
++  /*
++   * The public URL is NOT hard-coded here. Set NEXT_PUBLIC_SITE_URL in your
++   * hosting environment (see src/lib/seo.ts). The previous value,
++   * https://arpitpatidar.com, is a different person's website.
++   */
++  keywords: [
++    "Next.js",
++    "React",
++    "TypeScript",
++    "Node.js",
++    "NestJS",
++    "MongoDB",
++    "Supabase",
++    "Web3",
++    "Stablecoin payments",
++    "Cross-chain payments",
++    "Full-stack development",
++  ],
++  locale: "en_IN",
+   timezone: "Asia/Kolkata",
+   location: "India",
+ };
+diff --git a/src/constants/content.ts b/src/constants/content.ts
+index 39400a9..38cab54 100644
+--- a/src/constants/content.ts
++++ b/src/constants/content.ts
+@@ -20,14 +20,14 @@ export const aboutContent = {
+ };
+ 
+ export const contactContent = {
+-  headline: "Contact Us!",
++  headline: "Contact me!",
+   cta: {
+     line1: "LET'S CREATE",
+     line2: "THE IMPOSSIBLE —",
+     line3: "TOGETHER",
+   },
+   description:
+-    "LEGENDARIUM IS MORE THAN A MAGAZINE — IT'S A NEXUS FOR VISIONARIES, DISRUPTORS, AND PHENOMENA-IN-THE-MAKING. WHETHER YOU'RE READY TO BE FEATURED, CONTRIBUTE YOUR GENIUS, OR EXPLORE PARTNERSHIP OPPORTUNITIES, THIS IS WHERE THE CONVERSATION BEGINS.",
++    "HAVE A PRODUCT, PLATFORM OR WEB3 IDEA? I BUILD FULL-STACK WEB APPS WITH NEXT.JS, NODE.JS AND TYPESCRIPT — FROM PAYMENT FLOWS AND WALLET INTEGRATIONS TO PRODUCTION DEPLOYS. TELL ME WHAT YOU'RE WORKING ON AND THE CONVERSATION BEGINS HERE.",
+   formPlaceholders: {
+     firstName: "First Name",
+     lastName: "Last Name",
+diff --git a/src/constants/projects.ts b/src/constants/projects.ts
+new file mode 100644
+index 0000000..e6bd897
+--- /dev/null
++++ b/src/constants/projects.ts
+@@ -0,0 +1,27 @@
++/* ─── Projects ───────────────────────────────────────────────
++ * Shared by the /projects timeline (UI) and its JSON-LD (SEO).
++ * Plain data module (no "use client") so Server Components can read it.
++ * ──────────────────────────────────────────────────────────── */
++
++export interface Project {
++  id: string;
++  year: string;
++  category: string;
++  title: string;
++  src: string;
++  rotation: string;
++  link: string;
++}
++
++export const PROJECTS: Project[] = [
++  { id: "01", year: "2024", category: "WEB APP", title: "7wovs Wedding", src: "/selected-work/7wovs.png", rotation: "rotate-[-2deg]", link: "https://7vowswed.com" },
++  { id: "02", year: "2024", category: "WEB APP", title: "EasyMB", src: "/selected-work/easymb.png", rotation: "rotate-[-2deg]", link: "https://easymb.in" },
++  { id: "03", year: "2024-25", category: "E-COMMERCE", title: "Ubuntu Interior", src: "/selected-work/ubuntu.png", rotation: "rotate-[-1deg]", link: "http://ubuntuinterior.com" },
++  { id: "04", year: "2025", category: "CRM", title: "Acent Tech", src: "", rotation: "rotate-[4deg]", link: "" },
++  { id: "05", year: "2025", category: "SaaS", title: "Vireo Setup", src: "/selected-work/vireo.png", rotation: "rotate-[4deg]", link: "https://dev.vireo.me" },
++  { id: "06", year: "2025-26", category: "DEFI", title: "Stable Coin", src: "/selected-work/stable.png", rotation: "rotate-[2deg]", link: "https://stablecoinpay.io" },
++  { id: "07", year: "2025-26", category: "DEFI", title: "Stable Link", src: "/selected-work/stable-link.png", rotation: "rotate-[2deg]", link: "http://stables.link" },
++  { id: "08", year: "2025-26", category: "PLATFORM", title: "Intent Flow", src: "/selected-work/intent.png", rotation: "rotate-[3deg]", link: "http://intentswap.io" },
++  { id: "09", year: "2025-26", category: "WEB3", title: "Metasub App", src: "/selected-work/metasub.png", rotation: "rotate-[-3deg]", link: "https://metasub.xyz" },
++  { id: "10", year: "2025-26", category: "WEB3 ACADEMY", title: "Adventure Dao", src: "/selected-work/adventure.png", rotation: "rotate-[-3deg]", link: "https://adventuredao.com" },
++];
+diff --git a/src/context/MusicContext.tsx b/src/context/MusicContext.tsx
+index 1721e00..712d67a 100644
+--- a/src/context/MusicContext.tsx
++++ b/src/context/MusicContext.tsx
+@@ -27,6 +27,24 @@ const MusicContext = createContext<MusicContextType | undefined>(undefined);
+ let globalAudio: HTMLAudioElement | null = null;
+ let hasSetupUnmuteListener = false;
+ 
++/**
++ * Runs `callback` once the page has finished loading and the browser is idle,
++ * so the ~9 MB track never competes with the page's own HTML, CSS, fonts and
++ * hero images (which decide LCP).
++ */
++const whenPageIsIdle = (callback: () => void) => {
++  const idle = () => {
++    // Safari lacks requestIdleCallback; fall back to a short timeout.
++    if (typeof window.requestIdleCallback === "function") {
++      window.requestIdleCallback(callback, { timeout: 3000 });
++    } else {
++      setTimeout(callback, 1500);
++    }
++  };
++  if (document.readyState === "complete") idle();
++  else window.addEventListener("load", idle, { once: true });
++};
++
+ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+   const [currentTrackIndex, _setCurrentTrackIndex] = useState(0);
+   const [isPlaying, setIsPlaying] = useState(false);
+@@ -42,19 +60,11 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
+ 
+     if (!globalAudio) {
+       globalAudio = new Audio(SONG_LIST[0].audioSrc);
+-      globalAudio.preload = "auto";
++      // Nothing is downloaded until playback is requested (after the intro and
++      // page load, or on the visitor's first interaction).
++      globalAudio.preload = "none";
+       globalAudio.muted = true;
+       globalAudio.volume = 0.8;
+-      
+-      // Attempt immediate muted autoplay
+-      const playPromise = globalAudio.play();
+-      if (playPromise !== undefined) {
+-          playPromise.catch(() => {
+-              // Browser may block even muted autoplay, that's okay.
+-          });
+-      }
+-      
+-      (window as any).globalAudio = globalAudio;
+     }
+ 
+     const audio = globalAudio;
+@@ -90,10 +100,12 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
+ 
+     // Loader completion handler
+     const handleLoaderComplete = () => {
+-      if (globalAudio && globalAudio.paused) {
+-        globalAudio.muted = true;
+-        globalAudio.play().catch(() => {});
+-      }
++      whenPageIsIdle(() => {
++        if (globalAudio && globalAudio.paused) {
++          // Muted autoplay attempt; browsers may block it, that's okay.
++          globalAudio.play().catch(() => {});
++        }
++      });
+     };
+ 
+     window.addEventListener("app-loader-complete", handleLoaderComplete);
+diff --git a/src/layout/AppNavbar/index.tsx b/src/layout/AppNavbar/index.tsx
+index 34a6bf6..7706f9c 100644
+--- a/src/layout/AppNavbar/index.tsx
++++ b/src/layout/AppNavbar/index.tsx
+@@ -42,7 +42,7 @@ export const AppNavbar = () => {
+   return (
+     <>
+       {/* ─── Desktop Navbar ─── */}
+-      <nav className="hidden md:flex justify-between items-start w-full text-xs font-mono uppercase tracking-[0.3em] relative z-20">
++      <nav aria-label="Main" className="hidden md:flex justify-between items-start w-full text-xs font-mono uppercase tracking-[0.3em] relative z-20">
+         <div className="flex gap-6 group cursor-pointer items-center">
+           {navLinks.map((link) => (
+             <Link key={link.href} href={link.href} className="hover:text-accent transition-colors duration-300 pointer-events-auto">{link.label}</Link>
+@@ -74,6 +74,8 @@ export const AppNavbar = () => {
+ 
+         {/* Right: Menu Button */}
+         <button
++          type="button"
++          aria-expanded={menuOpen}
+           onClick={() => setMenuOpen(true)}
+           className="flex items-center gap-2 px-4 py-2 rounded-full border border-white/15 bg-white/5 backdrop-blur-md text-white text-[11px] font-mono uppercase tracking-[0.2em] hover:bg-white/10 transition-colors"
+         >
+diff --git a/src/layout/AppShell/index.tsx b/src/layout/AppShell/index.tsx
+new file mode 100644
+index 0000000..eb7c049
+--- /dev/null
++++ b/src/layout/AppShell/index.tsx
+@@ -0,0 +1,18 @@
++"use client";
++
++import { MusicProvider } from "@/context/MusicContext";
++import { AppLoader } from "@/components/AppLoader";
++import { MusicOverlay } from "@/components/MusicOverlay";
++
++/**
++ * Client-only chrome (intro loader, music player and its context).
++ * Kept out of the root layout so the layout can stay a Server Component
++ * and export metadata.
++ */
++export const AppShell = ({ children }: { children: React.ReactNode }) => (
++  <MusicProvider>
++    <AppLoader />
++    <MusicOverlay />
++    {children}
++  </MusicProvider>
++);
+diff --git a/src/lib/mail.ts b/src/lib/mail.ts
+index c7ebec5..5c6f30f 100644
+--- a/src/lib/mail.ts
++++ b/src/lib/mail.ts
+@@ -13,26 +13,44 @@ interface MailOptions {
+ const rawHost = process.env.SMTP_HOST || "";
+ const smtpHost = rawHost.includes("gmail.com") ? "smtp.gmail.com" : rawHost;
+ 
++// TLS certificates are verified (the previous `rejectUnauthorized: false`
++// allowed man-in-the-middle interception of the SMTP password).
+ const transporter = nodemailer.createTransport({
+   host: smtpHost,
+   port: Number(process.env.SMTP_PORT) || 587,
+-  secure: process.env.SMTP_SECURE === "true", 
++  secure: process.env.SMTP_SECURE === "true",
+   auth: {
+     user: process.env.SMTP_USER,
+     pass: process.env.SMTP_PASSWORD,
+   },
+-  tls: {
+-    rejectUnauthorized: false
+-  }
+ });
+ 
+-export const sendMail = async ({
+-  firstName,
+-  lastName,
+-  email,
+-  subject,
+-  message,
+-}: MailOptions) => {
++/** Escapes user input before it is placed in the HTML email. */
++const escapeHtml = (value: string) =>
++  value
++    .replace(/&/g, "&amp;")
++    .replace(/</g, "&lt;")
++    .replace(/>/g, "&gt;")
++    .replace(/"/g, "&quot;")
++    .replace(/'/g, "&#39;");
++
++/** Strips characters that could inject extra mail headers. */
++const singleLine = (value: string) => value.replace(/[\r\n]+/g, " ").trim();
++
++export const sendMail = async (options: MailOptions) => {
++  const firstName = singleLine(options.firstName);
++  const lastName = singleLine(options.lastName);
++  const email = singleLine(options.email);
++  const subject = singleLine(options.subject);
++  const message = options.message;
++
++  const safe = {
++    name: escapeHtml(`${firstName} ${lastName}`),
++    email: escapeHtml(email),
++    subject: escapeHtml(subject),
++    message: escapeHtml(message).replace(/\n/g, "<br>"),
++  };
++
+   const mailContentText = `
+     New Inquiry from ${firstName} ${lastName}
+     -----------------------------------------
+@@ -67,29 +85,29 @@ export const sendMail = async ({
+     <body>
+       <div class="container">
+         <div class="header">
+-          <div class="status-badge">New Workspace Inquiry</div>
+-          <h1>LEGENDARIUM</h1>
++          <div class="status-badge">New Portfolio Inquiry</div>
++          <h1>ARPIT PATIDAR</h1>
+         </div>
+         <div class="content">
+           <div class="field-group">
+             <div class="field-label">From Participant</div>
+-            <div class="field-value">${firstName} ${lastName}</div>
++            <div class="field-value">${safe.name}</div>
+           </div>
+           
+           <div class="field-group">
+             <div class="field-label">Contact Channel</div>
+-            <div class="field-value"><a href="mailto:${email}" class="link">${email}</a></div>
++            <div class="field-value"><a href="mailto:${safe.email}" class="link">${safe.email}</a></div>
+           </div>
+           
+           <div class="field-group">
+             <div class="field-label">Declared Subject</div>
+-            <div class="field-value">${subject}</div>
++            <div class="field-value">${safe.subject}</div>
+           </div>
+           
+           <div class="field-group">
+             <div class="field-label">The Message</div>
+             <div class="message-block">
+-              ${message.replace(/\n/g, "<br>")}
++              ${safe.message}
+             </div>
+           </div>
+         </div>
+@@ -97,7 +115,7 @@ export const sendMail = async ({
+           <div class="footer-text">
+             This inquiry was dispatched from your <span class="link">Portfolio Workspace</span>.
+             <br>
+-            &copy; ${new Date().getFullYear()} Legendarium Engine.
++            &copy; ${new Date().getFullYear()} Arpit Patidar.
+           </div>
+         </div>
+       </div>
+@@ -106,10 +124,10 @@ export const sendMail = async ({
+   `;
+ 
+   const info = await transporter.sendMail({
+-    from: `"${firstName} ${lastName}" <${process.env.SMTP_USER}>`,
++    from: `"${`${firstName} ${lastName}`.replace(/"/g, "")}" <${process.env.SMTP_USER}>`,
+     to: process.env.RECEIVER_EMAIL,
+     replyTo: email,
+-    subject: `[LEGENDARIUM] New Message: ${subject}`,
++    subject: `[Portfolio] New Message: ${subject}`,
+     text: mailContentText,
+     html: mailContentHtml,
+   });
+diff --git a/src/lib/seo.ts b/src/lib/seo.ts
+new file mode 100644
+index 0000000..b669902
+--- /dev/null
++++ b/src/lib/seo.ts
+@@ -0,0 +1,179 @@
++/* ─── SEO Helpers ────────────────────────────────────────────
++ * Single source of truth for URLs, page metadata and JSON-LD.
++ * Every page builds its <head> through `buildPageMetadata` so
++ * titles, descriptions, canonicals and social cards never drift.
++ * ──────────────────────────────────────────────────────────── */
++
++import type { Metadata } from "next";
++import { siteConfig, socialLinks } from "@/constants/config";
++
++/**
++ * Absolute origin of the deployed site (no trailing slash).
++ *
++ * Order of precedence:
++ * 1. NEXT_PUBLIC_SITE_URL       – set this to your real domain in production
++ * 2. VERCEL_PROJECT_PRODUCTION_URL – provided automatically by Vercel at build time
++ * 3. http://localhost:3000      – local development
++ */
++export function getSiteUrl(): string {
++  const explicit = process.env.NEXT_PUBLIC_SITE_URL;
++  if (explicit) return explicit.replace(/\/+$/, "");
++
++  const vercel = process.env.VERCEL_PROJECT_PRODUCTION_URL;
++  if (vercel) return `https://${vercel.replace(/\/+$/, "")}`;
++
++  return "http://localhost:3000";
++}
++
++export function absoluteUrl(path = "/"): string {
++  return `${getSiteUrl()}${path.startsWith("/") ? path : `/${path}`}`;
++}
++
++/** True only for the real production deployment (keeps previews out of Google). */
++export function isProductionDeployment(): boolean {
++  if (process.env.VERCEL_ENV) return process.env.VERCEL_ENV === "production";
++  return process.env.NODE_ENV === "production";
++}
++
++/* ─── Per-page metadata ──────────────────────────────────── */
++
++type PageSeo = {
++  /** Page-specific part of the title; the root template appends " | Arpit Patidar". */
++  title?: string;
++  description: string;
++  path: `/${string}`;
++};
++
++export function buildPageMetadata({ title, description, path }: PageSeo): Metadata {
++  const socialTitle = title ? `${title} | ${siteConfig.name}` : siteConfig.title;
++
++  return {
++    ...(title ? { title } : {}),
++    description,
++    alternates: { canonical: path },
++    openGraph: {
++      title: socialTitle,
++      description,
++      url: path,
++      type: "website",
++    },
++    twitter: {
++      title: socialTitle,
++      description,
++    },
++  };
++}
++
++/* ─── Sitemap source ─────────────────────────────────────── */
++
++/**
++ * Indexable pages. Update `lastModified` when a page's content really changes,
++ * Google ignores lastmod values that change on every build.
++ */
++export const indexablePages: { path: `/${string}`; lastModified: string }[] = [
++  { path: "/", lastModified: "2026-10-12" },
++  { path: "/about", lastModified: "2026-10-12" },
++  { path: "/projects", lastModified: "2026-10-12" },
++  { path: "/contact", lastModified: "2026-10-12" },
++];
++
++/* ─── JSON-LD (schema.org) ───────────────────────────────── */
++
++type JsonLdNode = Record<string, unknown>;
++
++const personId = () => `${getSiteUrl()}/#person`;
++const websiteId = () => `${getSiteUrl()}/#website`;
++
++export function personJsonLd(): JsonLdNode {
++  return {
++    "@type": "Person",
++    "@id": personId(),
++    name: siteConfig.name,
++    url: absoluteUrl("/"),
++    image: absoluteUrl("/self1.jpeg"),
++    jobTitle: siteConfig.jobTitle,
++    description: siteConfig.description,
++    email: `mailto:${socialLinks.email}`,
++    address: {
++      "@type": "PostalAddress",
++      addressCountry: "IN",
++    },
++    worksFor: {
++      "@type": "Organization",
++      name: "Metaverse Ventures Pvt. Ltd.",
++    },
++    alumniOf: {
++      "@type": "CollegeOrUniversity",
++      name: "Chameli Devi Group of Institutions",
++    },
++    knowsAbout: siteConfig.keywords,
++    sameAs: [
++      socialLinks.github,
++      socialLinks.linkedin,
++      socialLinks.twitter,
++      socialLinks.instagram.url,
++    ],
++  };
++}
++
++export function websiteJsonLd(): JsonLdNode {
++  return {
++    "@type": "WebSite",
++    "@id": websiteId(),
++    url: absoluteUrl("/"),
++    name: `${siteConfig.name} — Portfolio`,
++    inLanguage: "en",
++    author: { "@id": personId() },
++    publisher: { "@id": personId() },
++  };
++}
++
++export function profilePageJsonLd(path: `/${string}`, name: string): JsonLdNode {
++  return {
++    "@type": "ProfilePage",
++    "@id": `${absoluteUrl(path)}#webpage`,
++    url: absoluteUrl(path),
++    name,
++    isPartOf: { "@id": websiteId() },
++    mainEntity: { "@id": personId() },
++  };
++}
++
++export function breadcrumbJsonLd(items: { name: string; path: `/${string}` }[]): JsonLdNode {
++  return {
++    "@type": "BreadcrumbList",
++    itemListElement: items.map((item, index) => ({
++      "@type": "ListItem",
++      position: index + 1,
++      name: item.name,
++      item: absoluteUrl(item.path),
++    })),
++  };
++}
++
++export function projectListJsonLd(
++  projects: { title: string; category: string; year: string; link: string; image: string }[],
++): JsonLdNode {
++  return {
++    "@type": "ItemList",
++    name: `Projects by ${siteConfig.name}`,
++    itemListElement: projects.map((project, index) => ({
++      "@type": "ListItem",
++      position: index + 1,
++      item: {
++        "@type": "CreativeWork",
++        name: project.title,
++        genre: project.category,
++        dateCreated: project.year.slice(0, 4),
++        creator: { "@id": personId() },
++        ...(project.link ? { url: project.link } : {}),
++        ...(project.image ? { image: absoluteUrl(project.image) } : {}),
++      },
++    })),
++  };
++}
++
++/** Wraps nodes in a single @graph document. */
++export function jsonLdGraph(...nodes: JsonLdNode[]): JsonLdNode {
++  return { "@context": "https://schema.org", "@graph": nodes };
++}
+diff --git a/src/modules/aboutPage/hero-section.tsx b/src/modules/aboutPage/hero-section.tsx
+index c1b0432..a108265 100644
+--- a/src/modules/aboutPage/hero-section.tsx
++++ b/src/modules/aboutPage/hero-section.tsx
+@@ -113,6 +113,7 @@ export const HeroSection = () => {
+       >
+         <motion.div className="space-y-4" variants={fadeUp}>
+           <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-[6vw] font-black leading-[0.85] tracking-tighter !lowercase font-heading mt-6 md:mt-0">
++            <span className="sr-only">Arpit Patidar — about, resume and experience. </span>
+             visual<br />Developer
+           </h1>
+           <p className="max-w-md text-sm md:text-base text-muted-foreground leading-relaxed font-medium pt-4 md:pl-10 lg:pl-[20%]">
+@@ -173,12 +174,15 @@ export const HeroSection = () => {
+           >
+             {/* Main Image */}
+             <div className="relative w-full h-[110%] transform -translate-y-[5%]">
++              {/* Likely LCP element on /about: optimized and fetched with high priority. */}
+               <Image
+                 src="/self.png"
+-                alt="Portrait"
++                alt="Portrait of Arpit Patidar"
+                 fill
++                sizes="(min-width: 1024px) 45vw, 100vw"
++                loading="eager"
++                fetchPriority="high"
+                 className="object-contain object-bottom"
+-                unoptimized
+               />
+               <div className="absolute inset-0 bg-[#FBB040]/10 mix-blend-multiply pointer-events-none" />
+             </div>
+diff --git a/src/modules/aboutPage/index.tsx b/src/modules/aboutPage/index.tsx
+index 05432b2..3dc22bf 100644
+--- a/src/modules/aboutPage/index.tsx
++++ b/src/modules/aboutPage/index.tsx
+@@ -1,4 +1,3 @@
+-"use client";
+ import { AppNavbar } from "@/layout/AppNavbar";
+ import { HeroSection } from "./hero-section";
+ import { ResumeSection } from "./resume-section";
+diff --git a/src/modules/aboutPage/resume-section.tsx b/src/modules/aboutPage/resume-section.tsx
+index 59dcdd7..8465824 100644
+--- a/src/modules/aboutPage/resume-section.tsx
++++ b/src/modules/aboutPage/resume-section.tsx
+@@ -1,3 +1,5 @@
++"use client";
++
+ import { motion } from "framer-motion";
+ 
+ const EDUCATION_DATA = [
+diff --git a/src/modules/contactPage/index.tsx b/src/modules/contactPage/index.tsx
+index 82617f0..8030d36 100644
+--- a/src/modules/contactPage/index.tsx
++++ b/src/modules/contactPage/index.tsx
+@@ -4,6 +4,7 @@ import React, { useState } from "react";
+ import Image from "next/image";
+ import { motion, AnimatePresence } from "framer-motion";
+ import { AppNavbar } from "@/layout/AppNavbar";
++import { contactContent } from "@/constants";
+ 
+ export const ContactPage = () => {
+   const [formData, setFormData] = useState({
+@@ -12,6 +13,7 @@ export const ContactPage = () => {
+     email: "",
+     subject: "",
+     message: "",
++    website: "",
+   });
+ 
+   const [errors, setErrors] = useState<Record<string, string>>({});
+@@ -56,12 +58,12 @@ export const ContactPage = () => {
+       if (response.ok) {
+         setStatus("success");
+         setStatusMessage("Thank you! Your message has been sent successfully.");
+-        setFormData({ firstName: "", lastName: "", email: "", subject: "", message: "" });
++        setFormData({ firstName: "", lastName: "", email: "", subject: "", message: "", website: "" });
+       } else {
+         setStatus("error");
+         setStatusMessage(result.error || "Failed to send message.");
+       }
+-    } catch (error) {
++    } catch {
+       setStatus("error");
+       setStatusMessage("Something went wrong. Please try again later.");
+     }
+@@ -102,10 +104,10 @@ export const ContactPage = () => {
+             <div className="relative w-full h-full overflow-hidden">
+               <Image
+                 src="/personal/image7.jpeg"
+-                alt="Texture"
++                alt=""
+                 fill
++                sizes="(min-width: 768px) 236px, 116px"
+                 className="object-cover opacity-80 contrast-125"
+-                unoptimized
+               />
+             </div>
+           </motion.div>
+@@ -120,10 +122,10 @@ export const ContactPage = () => {
+             <div className="relative w-full h-full overflow-hidden">
+               <Image
+                 src="/personal/image18.jpeg"
+-                alt="Atmosphere"
++                alt=""
+                 fill
++                sizes="(min-width: 768px) 204px, 104px"
+                 className="object-cover"
+-                unoptimized
+               />
+             </div>
+           </motion.div>
+@@ -138,11 +140,12 @@ export const ContactPage = () => {
+             <div className="relative w-full h-full overflow-hidden">
+               <Image
+                 src="/personal/image8.jpeg"
+-                alt="Main Character"
++                alt="Arpit Patidar"
+                 fill
+-                priority
++                sizes="(min-width: 768px) 368px, 268px"
++                loading="eager"
++                fetchPriority="high"
+                 className="object-cover grayscale opacity-80"
+-                unoptimized
+               />
+             </div>
+           </motion.div>
+@@ -157,10 +160,10 @@ export const ContactPage = () => {
+             <div className="relative w-full h-full overflow-hidden">
+               <Image
+                 src="/personal/image19.jpeg"
+-                alt="Self"
++                alt=""
+                 fill
++                sizes="(min-width: 768px) 164px, 104px"
+                 className="object-cover contrast-110"
+-                unoptimized
+               />
+             </div>
+           </motion.div>
+@@ -175,10 +178,10 @@ export const ContactPage = () => {
+             <div className="relative w-full h-full overflow-hidden">
+               <Image
+                 src="/personal/image14.jpeg"
+-                alt="Details"
++                alt=""
+                 fill
++                sizes="(min-width: 768px) 184px, 124px"
+                 className="object-cover"
+-                unoptimized
+               />
+             </div>
+           </motion.div>
+@@ -200,12 +203,30 @@ export const ContactPage = () => {
+ 
+           {/* Left side: Minimal Form */}
+           <div className="space-y-12">
+-            <form className="space-y-8" onSubmit={handleSubmit}>
++            <form className="space-y-8" onSubmit={handleSubmit} noValidate>
++              {/* Honeypot: invisible to people, bots fill it and get silently dropped by the API. */}
++              <div aria-hidden="true" className="absolute -left-[9999px] w-px h-px overflow-hidden">
++                <label htmlFor="contact-website">Website</label>
++                <input
++                  id="contact-website"
++                  type="text"
++                  name="website"
++                  tabIndex={-1}
++                  autoComplete="off"
++                  value={formData.website}
++                  onChange={handleChange}
++                />
++              </div>
+               <div className="grid grid-cols-2 gap-8">
+                 <div className="space-y-2">
++                  <label htmlFor="contact-firstName" className="sr-only">First Name</label>
+                   <input
++                    id="contact-firstName"
+                     type="text"
+                     name="firstName"
++                    autoComplete="given-name"
++                    required
++                    aria-invalid={Boolean(errors.firstName)}
+                     value={formData.firstName}
+                     onChange={handleChange}
+                     placeholder="First Name"
+@@ -214,9 +235,14 @@ export const ContactPage = () => {
+                   {errors.firstName && <span className="text-[10px] font-mono text-accent uppercase tracking-wider">{errors.firstName}</span>}
+                 </div>
+                 <div className="space-y-2">
++                  <label htmlFor="contact-lastName" className="sr-only">Last Name</label>
+                   <input
++                    id="contact-lastName"
+                     type="text"
+                     name="lastName"
++                    autoComplete="family-name"
++                    required
++                    aria-invalid={Boolean(errors.lastName)}
+                     value={formData.lastName}
+                     onChange={handleChange}
+                     placeholder="Last Name"
+@@ -227,9 +253,14 @@ export const ContactPage = () => {
+               </div>
+ 
+               <div className="space-y-2">
++                <label htmlFor="contact-email" className="sr-only">Email Address</label>
+                 <input
++                  id="contact-email"
+                   type="email"
+                   name="email"
++                  autoComplete="email"
++                  required
++                  aria-invalid={Boolean(errors.email)}
+                   value={formData.email}
+                   onChange={handleChange}
+                   placeholder="Email Address"
+@@ -239,9 +270,14 @@ export const ContactPage = () => {
+               </div>
+ 
+               <div className="space-y-2">
++                <label htmlFor="contact-subject" className="sr-only">Subject</label>
+                 <input
++                  id="contact-subject"
+                   type="text"
+                   name="subject"
++                  autoComplete="off"
++                  required
++                  aria-invalid={Boolean(errors.subject)}
+                   value={formData.subject}
+                   onChange={handleChange}
+                   placeholder="Subject"
+@@ -251,8 +287,12 @@ export const ContactPage = () => {
+               </div>
+ 
+               <div className="space-y-2">
++                <label htmlFor="contact-message" className="sr-only">Message</label>
+                 <textarea
++                  id="contact-message"
+                   name="message"
++                  required
++                  aria-invalid={Boolean(errors.message)}
+                   value={formData.message}
+                   onChange={handleChange}
+                   placeholder="Type your message here..."
+@@ -266,6 +306,7 @@ export const ContactPage = () => {
+               <AnimatePresence>
+                 {statusMessage && (
+                   <motion.div
++                    role="status"
+                     initial={{ opacity: 0, y: -10 }}
+                     animate={{ opacity: 1, y: 0 }}
+                     exit={{ opacity: 0, scale: 0.95 }}
+@@ -343,7 +384,7 @@ export const ContactPage = () => {
+ 
+               <div className="max-w-md space-y-6">
+                 <p className="text-[11px] font-mono uppercase tracking-[0.2em] leading-relaxed text-white/50">
+-                  LEGENDARIUM IS MORE THAN A MAGAZINE — IT'S A NEXUS FOR VISIONARIES, DISRUPTORS, AND PHENOMENA-IN-THE-MAKING. WHETHER YOU'RE READY TO BE FEATURED, CONTRIBUTE YOUR GENIUS, OR EXPLORE PARTNERSHIP OPPORTUNITIES, THIS IS WHERE THE CONVERSATION BEGINS.
++                  {contactContent.description}
+                 </p>
+               </div>
+             </motion.div>
+diff --git a/src/modules/landingPage/connect-section/index.tsx b/src/modules/landingPage/connect-section/index.tsx
+index cba5ee7..58ca838 100644
+--- a/src/modules/landingPage/connect-section/index.tsx
++++ b/src/modules/landingPage/connect-section/index.tsx
+@@ -1,15 +1,26 @@
+ "use client";
+ 
+-import React, { useMemo } from "react";
++import React from "react";
++import Link from "next/link";
+ import { motion } from "framer-motion";
+ import { ArrowRight } from "lucide-react";
+-import { useRouter } from "next/navigation";
+ import { connectSectionContent, routes } from "@/constants";
+ 
++type Star = {
++  id: number;
++  size: number;
++  x: string;
++  y: string;
++  duration: number;
++  delay: number;
++};
++
++// A real <a href> keeps the CTA crawlable and keyboard-accessible.
++const MotionLink = motion.create(Link);
++
+ export const ConnectSection = () => {
+   // Generate random stable positions for stars
+-  const router = useRouter();
+-  const [stars, setStars] = React.useState<any[]>([]);
++  const [stars, setStars] = React.useState<Star[]>([]);
+ 
+   React.useEffect(() => {
+     setStars(Array.from({ length: 50 }).map((_, i) => ({
+@@ -65,7 +76,8 @@ export const ConnectSection = () => {
+         </motion.span>
+ 
+         {/* Massive Pill Button */}
+-        <motion.button
++        <MotionLink
++          href={routes.contact}
+           initial={{ scale: 0.9, opacity: 0 }}
+           whileInView={{ scale: 1, opacity: 1 }}
+           whileHover={{ scale: 1.02 }}
+@@ -74,14 +86,14 @@ export const ConnectSection = () => {
+           className="relative group px-8 py-6 sm:px-12 sm:py-8 md:px-32 md:py-16 rounded-[60px] sm:rounded-[80px] md:rounded-[100px] border border-white/20 hover:border-white/50 bg-transparent transition-all duration-500 overflow-hidden"
+         >
+           <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-[0.03] transition-opacity" />
+-          <div onClick={() => router.push(routes.contact)} className="flex items-center gap-4 sm:gap-6 md:gap-12 text-white">
++          <div className="flex items-center gap-4 sm:gap-6 md:gap-12 text-white">
+             <span
+               className="text-2xl sm:text-4xl md:text-8xl font-bold font-heading tracking-tight">
+               {connectSectionContent.cta}
+             </span>
+             <ArrowRight className="w-6 h-6 sm:w-8 sm:h-8 md:w-20 md:h-20 group-hover:translate-x-4 transition-transform duration-500" />
+           </div>
+-        </motion.button>
++        </MotionLink>
+ 
+         {/* Warning Bottom Text */}
+         <motion.p
+diff --git a/src/modules/landingPage/experience-section/index.tsx b/src/modules/landingPage/experience-section/index.tsx
+index 6a78144..b58151a 100644
+--- a/src/modules/landingPage/experience-section/index.tsx
++++ b/src/modules/landingPage/experience-section/index.tsx
+@@ -134,9 +134,10 @@ export const ExperienceSection = () => {
+               <div className="hidden md:flex h-12 w-[1px] bg-white/20 mx-8 transition-colors duration-300 group-hover:bg-accent/50" />
+ 
+               <div className="flex flex-col flex-grow">
+-                <h4 className="text-xl sm:text-2xl md:text-[2.25rem] font-bold text-white mb-1 sm:mb-2 tracking-tight leading-[1.1] sm:leading-none group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-white/60 transition-all duration-300">
++                {/* h3 (was h4) keeps the heading outline sequential under the section's h2 */}
++                <h3 className="text-xl sm:text-2xl md:text-[2.25rem] font-bold text-white mb-1 sm:mb-2 tracking-tight leading-[1.1] sm:leading-none group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-white/60 transition-all duration-300">
+                   {exp.role}
+-                </h4>
++                </h3>
+                 <span className="text-white/50 text-sm sm:text-base md:text-lg font-medium">
+                   {exp.company}
+                 </span>
+@@ -146,12 +147,14 @@ export const ExperienceSection = () => {
+                 </span>
+               </div>
+ 
+-              <div
++              <button
++                type="button"
++                aria-label={`Details: ${exp.role} at ${exp.company}`}
+                 className="flex-shrink-0 md:ml-auto flex items-center justify-center mt-4 sm:mt-5 md:mt-0 w-10 h-10 sm:w-11 sm:h-11 md:w-12 md:h-12 rounded-full border border-white/10 group-hover:bg-white/5 group-hover:border-white/20 transition-all duration-300 self-end md:self-auto cursor-pointer"
+                 onClick={() => setSelectedExpIdx(i)}
+               >
+                 <ArrowUpRight className="w-4 h-4 sm:w-5 sm:h-5 text-white/50 group-hover:text-white group-hover:translate-x-[2px] group-hover:-translate-y-[2px] transition-transform duration-300" />
+-              </div>
++              </button>
+             </div>
+           ))}
+         </div>
+@@ -197,6 +200,8 @@ export const ExperienceSection = () => {
+                       </p>
+                     </div>
+                     <button
++                      type="button"
++                      aria-label="Close"
+                       onClick={() => setSelectedExpIdx(null)}
+                       className="p-2 sm:p-3 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-colors group"
+                     >
+diff --git a/src/modules/landingPage/footer/index.tsx b/src/modules/landingPage/footer/index.tsx
+index 67745d8..40bc652 100644
+--- a/src/modules/landingPage/footer/index.tsx
++++ b/src/modules/landingPage/footer/index.tsx
+@@ -51,7 +51,7 @@ export const Footer = () => {
+             {SOCIALS.map((social, i) => (
+               <a
+                 target="_blank"
+-                rel="noreferrer"
++                rel="noopener noreferrer me"
+                 key={i}
+                 href={social.href}
+                 className="text-white/60 hover:text-white transition-all duration-300 hover:scale-110"
+@@ -76,9 +76,10 @@ export const Footer = () => {
+ 
+       {/* 2. Massive Branded Backdrop */}
+       <div className="relative mt-12 sm:mt-16 md:mt-20 select-none pointer-events-none">
+-        <h2 className="text-[20vw] sm:text-[25vw] leading-[0.75] font-heading font-black uppercase text-[#FF6B00] tracking-tighter opacity-100 whitespace-nowrap translate-y-[20%]">
++        {/* Decorative wordmark: <p> so every page doesn't end with an extra "Arpit" heading */}
++        <p aria-hidden="true" className="text-[20vw] sm:text-[25vw] leading-[0.75] font-heading font-black uppercase text-[#FF6B00] tracking-tighter opacity-100 whitespace-nowrap translate-y-[20%]">
+           Arpit
+-        </h2>
++        </p>
+       </div>
+ 
+     </footer>
+diff --git a/src/modules/landingPage/hero-section/index.tsx b/src/modules/landingPage/hero-section/index.tsx
+index 9951480..d30562d 100644
+--- a/src/modules/landingPage/hero-section/index.tsx
++++ b/src/modules/landingPage/hero-section/index.tsx
+@@ -17,7 +17,7 @@ export const HeroSection = () => {
+       <div
+         className="absolute inset-0 z-0 pointer-events-none grayscale opacity-100 mix-blend-screen md:hidden"
+         style={{
+-          backgroundImage: 'url(/bg/herobg.png)',
++          backgroundImage: 'url(/bg/herobg.webp)',
+           backgroundRepeat: 'no-repeat',
+           backgroundSize: 'cover',
+           backgroundPosition: 'center 20%',
+@@ -29,7 +29,7 @@ export const HeroSection = () => {
+         className="absolute right-0 top-0 h-full z-0 pointer-events-none grayscale opacity-100 mix-blend-screen hidden md:block"
+         style={{
+           width: '65vw',
+-          backgroundImage: 'url(/bg/herobg.png)',
++          backgroundImage: 'url(/bg/herobg.webp)',
+           backgroundRepeat: 'no-repeat',
+           backgroundSize: 'contain',
+           backgroundPosition: 'right center',
+@@ -70,10 +70,12 @@ export const HeroSection = () => {
+                   {heroContent.tagline}
+                 </span>
+                 <div className="space-y-2 sm:space-y-3 md:space-y-4">
+-                  <h2 className="text-[2.25rem] flex flex-col sm:text-[3rem] md:text-4xl lg:text-6xl leading-[0.9] tracking-tight">
++                  {/* The page's single H1: names the person and the role for search engines. */}
++                  <h1 className="text-[2.25rem] flex flex-col sm:text-[3rem] md:text-4xl lg:text-6xl leading-[0.9] tracking-tight">
++                    <span className="sr-only">Arpit Patidar — Full-Stack &amp; Web3 Developer. </span>
+                     <span className="font-serif italic font-light block sm:inline mr-4">Visual</span>
+                     <span className="font-heading font-black uppercase text-accent accent-glow block sm:inline">Developer</span>
+-                  </h2>
++                  </h1>
+                   <p className="text-xs sm:text-sm md:text-base lg:text-lg font-sans uppercase tracking-[0.3em] text-white/50 font-medium">
+                     {heroContent.subline}
+                   </p>
+@@ -96,9 +98,10 @@ export const HeroSection = () => {
+ 
+           {/* Massive Logo — always visible */}
+           <div className="relative w-full md:w-auto">
+-            <h1 className="text-[22vw] sm:text-[16vw] md:text-[24vw] lg:text-[16vw] leading-[0.7] font-heading font-black tracking-[-0.08em] select-none text-white overflow-visible transition-all duration-700 md:text-right drop-shadow-[0_0_50px_rgba(255,255,255,0.05)]">
++            {/* Decorative wordmark: a <p> (not an H1) so it doesn't compete with the real page title. */}
++            <p aria-hidden="true" className="text-[22vw] sm:text-[16vw] md:text-[24vw] lg:text-[16vw] leading-[0.7] font-heading font-black uppercase tracking-[-0.08em] select-none text-white overflow-visible transition-all duration-700 md:text-right drop-shadow-[0_0_50px_rgba(255,255,255,0.05)]">
+               Code
+-            </h1>
++            </p>
+           </div>
+         </footer>
+       </div>
+diff --git a/src/modules/landingPage/identity-section/index.tsx b/src/modules/landingPage/identity-section/index.tsx
+index 09633e9..d49a02e 100644
+--- a/src/modules/landingPage/identity-section/index.tsx
++++ b/src/modules/landingPage/identity-section/index.tsx
+@@ -99,10 +99,10 @@ export const IdentitySection = () => {
+             <div className="absolute inset-0 z-10 w-[140%] h-[120%] -ml-[20%] mt-[5%] pointer-events-none">
+               <Image
+                 src="/self.png"
+-                alt="Portrait"
++                alt="Portrait of Arpit Patidar"
+                 fill
++                sizes="(min-width: 768px) 490px, (min-width: 640px) 365px, 295px"
+                 className="object-cover grayscale contrast-[1.15] opacity-90 mix-blend-multiply"
+-                unoptimized
+               />
+             </div>
+ 
+diff --git a/src/modules/landingPage/index.tsx b/src/modules/landingPage/index.tsx
+index 2bed305..c2b64c6 100644
+--- a/src/modules/landingPage/index.tsx
++++ b/src/modules/landingPage/index.tsx
+@@ -1,4 +1,3 @@
+-"use client";
+ import { HeroSection } from "./hero-section";
+ import { IdentitySection } from "./identity-section";
+ import { WorkSection } from "./work-section";
+diff --git a/src/modules/landingPage/lifestyle-section/index.tsx b/src/modules/landingPage/lifestyle-section/index.tsx
+index b7cd34b..9af6b85 100644
+--- a/src/modules/landingPage/lifestyle-section/index.tsx
++++ b/src/modules/landingPage/lifestyle-section/index.tsx
+@@ -2,7 +2,7 @@
+ 
+ import { useEffect, useState } from "react";
+ import Image from "next/image";
+-import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
++import { motion, useMotionValue, useSpring, useTransform, type MotionValue } from "framer-motion";
+ import { socialLinks } from "@/constants";
+ 
+ // The photo structure mimicking polaroids
+@@ -208,6 +208,108 @@ const IG_BADGES = [
+ ];
+ 
+ 
++/* ─── Parallax layers ─────────────────────────────────────────
++ * Each layer is its own component so hooks are never called inside
++ * a loop (Rules of Hooks). Output is identical to the previous inline version.
++ * ──────────────────────────────────────────────────────────── */
++
++type Pointer = { smoothX: MotionValue<number>; smoothY: MotionValue<number> };
++
++const useParallax = ({ smoothX, smoothY }: Pointer, factor: number) => ({
++  x: useTransform(smoothX, (v) => v * factor),
++  y: useTransform(smoothY, (v) => v * factor),
++});
++
++const Polaroid = ({ data, isMobile, pointer }: { data: typeof PHOTOS[number]; isMobile: boolean; pointer: Pointer }) => {
++  const { x, y } = useParallax(pointer, 0.05 * data.depth);
++  return (
++    <div
++      className="absolute pointer-events-none drop-shadow-2xl"
++      style={{
++        left: isMobile ? data.mobileOffsetX : data.offsetX,
++        top: isMobile ? data.mobileOffsetY : data.offsetY,
++        zIndex: data.zIndex,
++        transform: 'translate(-50%, -50%)'
++      }}
++    >
++      <motion.div
++        className="w-[220px] h-[260px] sm:w-[260px] sm:h-[300px] md:w-[320px] md:h-[380px] rounded-[12px] sm:rounded-[16px] bg-[#121212] p-2 sm:p-3 shadow-[0_20px_50px_rgba(0,0,0,0.8)] border border-white/5 flex flex-col"
++        style={{ rotate: data.rotate, x, y }}
++      >
++        <div className="relative w-full flex-grow rounded-[6px] sm:rounded-[8px] overflow-hidden bg-black/50">
++          <Image
++            src={data.src}
++            fill
++            sizes="(min-width: 768px) 300px, (min-width: 640px) 240px, 210px"
++            alt={data.title ? `${data.title} — travel photo by Arpit Patidar` : "Travel photo by Arpit Patidar"}
++            className="object-cover opacity-90 transition-transform duration-700 ease-out hover:scale-110 pointer-events-auto"
++          />
++        </div>
++        {data.title && (
++          <div className="w-full text-center mt-2 sm:mt-3 mb-1 sm:mb-2 text-white/50 opacity-80 text-sm sm:text-base md:text-lg lg:text-xl font-medium tracking-wide" style={{ fontFamily: 'var(--font-heading)' }}>
++            {data.title}
++          </div>
++        )}
++      </motion.div>
++    </div>
++  );
++};
++
++const IgBadge = ({ badge, isMobile, pointer }: { badge: typeof IG_BADGES[number]; isMobile: boolean; pointer: Pointer }) => {
++  const { x, y } = useParallax(pointer, 0.08 * badge.depth);
++  return (
++    <div
++      className="absolute pointer-events-none transition-transform hover:scale-105"
++      style={{
++        left: isMobile ? badge.mobileOffsetX : badge.offsetX,
++        top: isMobile ? badge.mobileOffsetY : badge.offsetY,
++        zIndex: badge.zIndex,
++        transform: 'translate(-50%, -50%)'
++      }}
++    >
++      {/* Real link instead of window.open, so it's crawlable and keyboard-accessible */}
++      <motion.a
++        href={badge.url}
++        target="_blank"
++        rel="noopener noreferrer"
++        aria-label={`Instagram ${badge.handle} (opens in a new tab)`}
++        className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 md:px-5 py-2 sm:py-3 rounded-full bg-gradient-to-r from-orange-500 via-pink-500 to-purple-600 shadow-2xl pointer-events-auto cursor-pointer"
++        style={{ rotate: badge.rotate, x, y }}
++      >
++        <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
++          <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
++          <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
++          <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
++        </svg>
++        <span className="text-white font-bold tracking-widest text-[10px] sm:text-xs md:text-sm uppercase">
++          {badge.handle}
++        </span>
++      </motion.a>
++    </div>
++  );
++};
++
++const Sticker = ({ stick, isMobile, pointer }: { stick: typeof STICKERS[number]; isMobile: boolean; pointer: Pointer }) => {
++  const { x, y } = useParallax(pointer, 0.12 * stick.depth);
++  const w = isMobile ? stick.mobileWidth : stick.width;
++  return (
++    <div
++      className="absolute pointer-events-none drop-shadow-2xl"
++      style={{
++        left: isMobile ? stick.mobileOffsetX : stick.offsetX,
++        top: isMobile ? stick.mobileOffsetY : stick.offsetY,
++        zIndex: stick.zIndex,
++        transform: 'translate(-50%, -50%)',
++        width: w
++      }}
++    >
++      <motion.div className="relative" style={{ rotate: stick.rotate, x, y }}>
++        <Image src={stick.src} width={w} height={w} className="w-full h-auto object-contain" alt="" />
++      </motion.div>
++    </div>
++  );
++};
++
+ export const LifestyleSection = () => {
+   const [isMobile, setIsMobile] = useState(false);
+ 
+@@ -218,6 +320,7 @@ export const LifestyleSection = () => {
+   const springConfig = { damping: 40, stiffness: 200, mass: 1 };
+   const smoothX = useSpring(mouseX, springConfig);
+   const smoothY = useSpring(mouseY, springConfig);
++  const pointer = { smoothX, smoothY };
+ 
+   useEffect(() => {
+     const checkMobile = () => setIsMobile(window.innerWidth < 768);
+@@ -256,118 +359,19 @@ export const LifestyleSection = () => {
+         <div className="relative w-0 h-0 flex items-center justify-center" style={{ transform: isMobile ? 'scale(0.65)' : 'scale(1)' }}>
+ 
+           {/* 1. RENDER POLAROIDS */}
+-          {PHOTOS.map((data) => {
+-            const parallaxX = useTransform(smoothX, (v) => (v * 0.05 * data.depth));
+-            const parallaxY = useTransform(smoothY, (v) => (v * 0.05 * data.depth));
+-            const oX = isMobile ? data.mobileOffsetX : data.offsetX;
+-            const oY = isMobile ? data.mobileOffsetY : data.offsetY;
+-
+-            return (
+-              <div
+-                key={`photo-${data.id}`}
+-                className="absolute pointer-events-none drop-shadow-2xl"
+-                style={{
+-                  left: oX,
+-                  top: oY,
+-                  zIndex: data.zIndex,
+-                  transform: 'translate(-50%, -50%)'
+-                }}
+-              >
+-                <motion.div
+-                  className="w-[220px] h-[260px] sm:w-[260px] sm:h-[300px] md:w-[320px] md:h-[380px] rounded-[12px] sm:rounded-[16px] bg-[#121212] p-2 sm:p-3 shadow-[0_20px_50px_rgba(0,0,0,0.8)] border border-white/5 flex flex-col"
+-                  style={{
+-                    rotate: data.rotate,
+-                    x: parallaxX,
+-                    y: parallaxY
+-                  }}
+-                >
+-                  <div className="relative w-full flex-grow rounded-[6px] sm:rounded-[8px] overflow-hidden bg-black/50">
+-                    <Image src={data.src} fill alt="Lifestyle" className="object-cover opacity-90 transition-transform duration-700 ease-out hover:scale-110 pointer-events-auto" unoptimized />
+-                  </div>
+-                  {data.title && (
+-                    <div className="w-full text-center mt-2 sm:mt-3 mb-1 sm:mb-2 text-white/50 opacity-80 text-sm sm:text-base md:text-lg lg:text-xl font-medium tracking-wide" style={{ fontFamily: 'var(--font-heading)' }}>
+-                      {data.title}
+-                    </div>
+-                  )}
+-                </motion.div>
+-              </div>
+-            );
+-          })}
++          {PHOTOS.map((data) => (
++            <Polaroid key={`photo-${data.id}`} data={data} isMobile={isMobile} pointer={pointer} />
++          ))}
+ 
+           {/* 2. RENDER IG BADGES */}
+-          {IG_BADGES.map((badge, i) => {
+-            const parallaxX = useTransform(smoothX, (v) => (v * 0.08 * badge.depth));
+-            const parallaxY = useTransform(smoothY, (v) => (v * 0.08 * badge.depth));
+-            const oX = isMobile ? badge.mobileOffsetX : badge.offsetX;
+-            const oY = isMobile ? badge.mobileOffsetY : badge.offsetY;
+-
+-            return (
+-              <div
+-                key={`badge-${i}`}
+-                className="absolute pointer-events-none transition-transform hover:scale-105"
+-                style={{
+-                  left: oX,
+-                  top: oY,
+-                  zIndex: badge.zIndex,
+-                  transform: 'translate(-50%, -50%)'
+-                }}
+-              >
+-                <motion.div
+-                  onClick={() => window.open(badge.url, '_blank')}
+-                  className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 md:px-5 py-2 sm:py-3 rounded-full bg-gradient-to-r from-orange-500 via-pink-500 to-purple-600 shadow-2xl pointer-events-auto cursor-pointer"
+-                  style={{
+-                    rotate: badge.rotate,
+-                    x: parallaxX,
+-                    y: parallaxY
+-                  }}
+-                >
+-                  <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+-                    <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+-                    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+-                    <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+-                  </svg>
+-                  <span className="text-white font-bold tracking-widest text-[10px] sm:text-xs md:text-sm uppercase">
+-                    {badge.handle}
+-                  </span>
+-                </motion.div>
+-              </div>
+-            );
+-          })}
++          {IG_BADGES.map((badge, i) => (
++            <IgBadge key={`badge-${i}`} badge={badge} isMobile={isMobile} pointer={pointer} />
++          ))}
+ 
+           {/* RENDER STICKERS */}
+-          {STICKERS.map((stick, i) => {
+-            if (stick.width === 0) return null;
+-            const parallaxX = useTransform(smoothX, (v) => (v * 0.12 * stick.depth));
+-            const parallaxY = useTransform(smoothY, (v) => (v * 0.12 * stick.depth));
+-            const oX = isMobile ? stick.mobileOffsetX : stick.offsetX;
+-            const oY = isMobile ? stick.mobileOffsetY : stick.offsetY;
+-            const w = isMobile ? stick.mobileWidth : stick.width;
+-
+-            return (
+-              <div
+-                key={`stick-${i}`}
+-                className="absolute pointer-events-none drop-shadow-2xl"
+-                style={{
+-                  left: oX,
+-                  top: oY,
+-                  zIndex: stick.zIndex,
+-                  transform: 'translate(-50%, -50%)',
+-                  width: w
+-                }}
+-              >
+-                <motion.div
+-                  className="relative"
+-                  style={{
+-                    rotate: stick.rotate,
+-                    x: parallaxX,
+-                    y: parallaxY
+-                  }}
+-                >
+-                  <Image src={stick.src} width={w} height={w} className="w-full h-auto object-contain" alt="Sticker" unoptimized />
+-                </motion.div>
+-              </div>
+-            );
+-          })}
++          {STICKERS.filter((stick) => stick.width !== 0).map((stick, i) => (
++            <Sticker key={`stick-${i}`} stick={stick} isMobile={isMobile} pointer={pointer} />
++          ))}
+ 
+           {/* 4. CENTRAL TEXT PILL BADGE STICKER */}
+           <div
+@@ -389,9 +393,9 @@ export const LifestyleSection = () => {
+                 <Image
+                   src="/Stickers/text.avif"
+                   fill
++                  sizes="(min-width: 1024px) 600px, (min-width: 768px) 500px, 340px"
+                   alt="This is where my mind wanders around"
+                   className="object-contain drop-shadow-2xl"
+-                  unoptimized
+                 />
+               </div>
+             </motion.div>
+diff --git a/src/modules/landingPage/skills-section/index.tsx b/src/modules/landingPage/skills-section/index.tsx
+index 322fe59..1db277a 100644
+--- a/src/modules/landingPage/skills-section/index.tsx
++++ b/src/modules/landingPage/skills-section/index.tsx
+@@ -1,8 +1,12 @@
+ "use client";
+ 
+ import React, { useState } from "react";
++import Link from "next/link";
+ import { motion, AnimatePresence } from "framer-motion";
+-import { useRouter } from "next/navigation";
++import { routes } from "@/constants";
++
++// A real <a href> keeps the CTA crawlable and keyboard-accessible.
++const MotionLink = motion.create(Link);
+ 
+ interface Tag {
+   text: string;
+@@ -87,7 +91,6 @@ const SKILL_CATEGORIES: SkillCategory[] = [
+ 
+ 
+ export const SkillsSection = () => {
+-  const router = useRouter()
+   const [hoveredIdx, setHoveredIdx] = useState<number | null>(1); // Match the mockup image by defaulting to Index 1 (GRAPHICS)
+   const [isMobile, setIsMobile] = useState(false);
+ 
+@@ -173,12 +176,12 @@ export const SkillsSection = () => {
+       </div>
+ 
+       {/* Button at the bottom */}
+-      <motion.button
++      <MotionLink
++        href={routes.projects}
+         initial={{ opacity: 0, y: 20 }}
+         whileInView={{ opacity: 1, y: 0 }}
+         transition={{ delay: 0.3 }}
+         className="mt-12 sm:mt-16 md:mt-32 flex items-center gap-6 sm:gap-8 md:gap-12 pl-6 sm:pl-8 md:pl-10 pr-2 py-2 rounded-full border border-white/20 bg-black/40 backdrop-blur-md group hover:border-accent/50 transition-all duration-300 shadow-[0_0_50px_rgba(0,0,0,0.8)]"
+-        onClick={() => router.push("/projects")}
+       >
+         <span className="text-white/80 font-medium tracking-wide text-xs sm:text-sm md:text-base group-hover:text-white transition-colors">
+           Explore All Works
+@@ -190,7 +193,7 @@ export const SkillsSection = () => {
+             <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+           </svg>
+         </div>
+-      </motion.button>
++      </MotionLink>
+ 
+     </section>
+   );
+diff --git a/src/modules/landingPage/work-section/index.tsx b/src/modules/landingPage/work-section/index.tsx
+index 8da297a..d6a74d1 100644
+--- a/src/modules/landingPage/work-section/index.tsx
++++ b/src/modules/landingPage/work-section/index.tsx
+@@ -29,7 +29,7 @@ const WORK_DATA = [
+   {
+     id: 2,
+     title: "7VowsWed",
+-    subtitle: "Omuke trughte a otufta",
++    subtitle: "Wedding web app",
+     image: "/selected-work/7wovs.png",
+     icon: TreeDeciduous,
+     color: "#65004e",
+@@ -38,7 +38,7 @@ const WORK_DATA = [
+   {
+     id: 3,
+     title: "Ubuntu",
+-    subtitle: "Omuke trughte a otufta",
++    subtitle: "Interior e-commerce platform",
+     image: "/selected-work/ubuntu.png",
+     icon: UserRound,
+     color: "#72685c",
+@@ -69,7 +69,10 @@ const WORK_DATA = [
+ const RedirectionBadge = ({ isExpanded, color, link }: { isExpanded: boolean, color: string, link: string }) => (
+   <AnimatePresence>
+     {isExpanded && (
+-      <motion.div
++      <motion.a
++        href={link}
++        target="_blank"
++        rel="noopener noreferrer"
+         initial={{ opacity: 0, scale: 0.5, rotate: -10 }}
+         animate={{ opacity: 1, scale: 1, rotate: 0 }}
+         exit={{ opacity: 0, scale: 0.5, rotate: -10 }}
+@@ -77,16 +80,14 @@ const RedirectionBadge = ({ isExpanded, color, link }: { isExpanded: boolean, co
+         style={{ backgroundColor: color }}
+         whileHover={{ scale: 1.05, filter: "brightness(1.1)" }}
+         whileTap={{ scale: 0.95 }}
+-        onClick={(e) => {
+-          e.stopPropagation();
+-          window.open(link, '_blank');
+-        }}
++        // Keep the click from also toggling the card underneath.
++        onClick={(e) => e.stopPropagation()}
+       >
+         <span className="text-white text-[9px] sm:text-[10px] font-black uppercase tracking-[0.15em] sm:tracking-[0.2em]">Visit</span>
+         <div className="flex items-center justify-center h-7 w-7 sm:h-8 sm:w-8 md:h-10 md:w-10 rounded-full bg-white/20 group-hover:bg-white/30 transition-colors">
+           <ArrowUpRight size={16} className="sm:w-5 sm:h-5 text-white transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+         </div>
+-      </motion.div>
++      </motion.a>
+     )}
+   </AnimatePresence>
+ );
+@@ -134,13 +135,13 @@ const ExpandingCard = ({ item, isExpanded, onHover, isMobileLayout }: CardProps)
+           mask: isExpanded && !isMobileLayout ? NOTCH_MASK : "none",
+         }}
+       >
++        {/* Optimized (AVIF/WebP, resized) instead of the raw 1–6 MB PNGs; not preloaded because it's below the fold. */}
+         <Image
+           src={item.image}
+-          alt={item.title}
++          alt={`${item.title} — ${item.subtitle}`}
+           fill
++          sizes="(min-width: 1280px) 720px, (min-width: 768px) 60vw, 100vw"
+           className="object-cover object-center transition-transform duration-700 group-hover:scale-105"
+-          priority={isExpanded}
+-          unoptimized
+         />
+ 
+         <div className={`absolute inset-0 bg-black/10 transition-opacity duration-300 ${isExpanded ? 'opacity-0' : 'opacity-30 group-hover:opacity-10'}`} />
+diff --git a/src/modules/projectsPage/index.tsx b/src/modules/projectsPage/index.tsx
+index 98c92e1..0ada1f9 100644
+--- a/src/modules/projectsPage/index.tsx
++++ b/src/modules/projectsPage/index.tsx
+@@ -1,5 +1,3 @@
+-"use client";
+-
+ import { AppNavbar } from "@/layout/AppNavbar";
+ import { ZigZagTimeline } from "./zig-zag-timeline";
+ 
+@@ -12,6 +10,7 @@ export const ProjectsPage = () => {
+       <div className="flex-1 w-full max-w-7xl mx-auto px-4 md:px-10 lg:px-16 py-16 md:py-32">
+         <header className="text-center space-y-6 mb-32 md:mb-48">
+           <h1 className="text-4xl md:text-6xl lg:text-7xl font-black font-heading tracking-tight capitalize leading-tight">
++            <span className="sr-only">Projects by Arpit Patidar — </span>
+             Built on Process,<br />
+             <span className="text-white">Driven by Results.</span>
+           </h1>
+diff --git a/src/modules/projectsPage/zig-zag-timeline.tsx b/src/modules/projectsPage/zig-zag-timeline.tsx
+index 715f9b1..c090d2a 100644
+--- a/src/modules/projectsPage/zig-zag-timeline.tsx
++++ b/src/modules/projectsPage/zig-zag-timeline.tsx
+@@ -1,72 +1,81 @@
+ "use client";
+ 
+-import React, { useRef } from "react";
++import React from "react";
+ import Image from "next/image";
+ import { motion } from "framer-motion";
+-
+-const PROJECTS = [
+-   { id: "01", year: "2024", category: "WEB APP", title: "7wovs Wedding", src: "/selected-work/7wovs.png", rotation: "rotate-[-2deg]", link: "https://7vowswed.com" },
+-   { id: "02", year: "2024", category: "WEB APP", title: "EasyMB", src: "/selected-work/easymb.png", rotation: "rotate-[-2deg]", link: "https://easymb.in" },
+-   { id: "03", year: "2024-25", category: "E-COMMERCE", title: "Ubuntu Interior", src: "/selected-work/ubuntu.png", rotation: "rotate-[-1deg]", link: "http://ubuntuinterior.com" },
+-   { id: "04", year: "2025", category: "CRM", title: "Acent Tech", src: "", rotation: "rotate-[4deg]", link: "" },
+-   { id: "05", year: "2025", category: "SaaS", title: "Vireo Setup", src: "/selected-work/vireo.png", rotation: "rotate-[4deg]", link: "https://dev.vireo.me" },
+-   { id: "06", year: "2025-26", category: "DEFI", title: "Stable Coin", src: "/selected-work/stable.png", rotation: "rotate-[2deg]", link: "https://stablecoinpay.io" },
+-   { id: "07", year: "2025-26", category: "DEFI", title: "Stable Link", src: "/selected-work/stable-link.png", rotation: "rotate-[2deg]", link: "http://stables.link" },
+-   { id: "08", year: "2025-26", category: "PLATFORM", title: "Intent Flow", src: "/selected-work/intent.png", rotation: "rotate-[3deg]", link: "http://intentswap.io" },
+-   { id: "09", year: "2025-26", category: "WEB3", title: "Metasub App", src: "/selected-work/metasub.png", rotation: "rotate-[-3deg]", link: "https://metasub.xyz" },
+-   { id: "10", year: "2025-26", category: "WEB3 ACADEMY", title: "Adventure Dao", src: "/selected-work/adventure.png", rotation: "rotate-[-3deg]", link: "https://adventuredao.com" },
+-
+-];
++import { PROJECTS } from "@/constants/projects";
+ 
+ const popIn = {
+    hidden: { opacity: 0, scale: 0.85, y: 80, filter: "blur(10px)" },
+    visible: { opacity: 1, scale: 1, y: 0, filter: "blur(0px)", transition: { type: "spring" as const, stiffness: 200, damping: 20, mass: 1 } }
+ };
+ 
+-export const ZigZagTimeline = () => {
+-   const containerRef = useRef<HTMLDivElement>(null);
+-
+-   // Dynamically calculate the SVG path so it scales perfectly with any number of projects!
+-   // It creates N distinct back-and-forth waves.
+-   const dynamicPath = React.useMemo(() => {
+-      const count = PROJECTS.length;
+-      if (count === 0) return "";
+-      const gap = 100 / count;
+-      let path = `M 50 0`;
+-
+-      // On mobile, we reduce the horizontal "zig-zag" amplitude for a cleaner look
+-      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+-      
+-      for (let i = 0; i < count; i++) {
+-         const yStart = i * gap;
+-         const yEnd = yStart + gap;
+-         
+-         // On mobile (narrower container), use 25/75 instead of 5/95
+-         const wideX = 95;
+-         const narrowX = 5;
+-         const mobileWideX = 70;
+-         const mobileNarrowX = 30;
+-
+-         const ctrlX = i % 2 === 0 
+-            ? (isMobile ? mobileNarrowX : narrowX) 
+-            : (isMobile ? mobileWideX : wideX);
+-
+-         path += ` C ${ctrlX} ${yStart + gap * 0.25}, ${ctrlX} ${yEnd - gap * 0.25}, 50 ${yEnd}`;
+-      }
+-      return path;
+-   }, [PROJECTS.length]);
++/** Builds the winding dashed path; amplitude is narrower on mobile. */
++const buildPath = (count: number, narrowX: number, wideX: number) => {
++   if (count === 0) return "";
++   const gap = 100 / count;
++   let path = `M 50 0`;
++   for (let i = 0; i < count; i++) {
++      const yStart = i * gap;
++      const yEnd = yStart + gap;
++      const ctrlX = i % 2 === 0 ? narrowX : wideX;
++      path += ` C ${ctrlX} ${yStart + gap * 0.25}, ${ctrlX} ${yEnd - gap * 0.25}, 50 ${yEnd}`;
++   }
++   return path;
++};
+ 
++// Both variants are rendered and toggled with CSS, so server and client HTML
++// match (reading window.innerWidth during render caused hydration mismatches).
++const DESKTOP_PATH = buildPath(PROJECTS.length, 5, 95);
++const MOBILE_PATH = buildPath(PROJECTS.length, 30, 70);
++
++/** Real <a> links (not window.open) so crawlers and keyboard users can follow them. */
++const CardWrapper = ({
++   link,
++   title,
++   className,
++   children,
++}: {
++   link: string;
++   title: string;
++   className: string;
++   children: React.ReactNode;
++}) =>
++   link ? (
++      <a
++         href={link}
++         target="_blank"
++         rel="noopener noreferrer"
++         aria-label={`${title} (opens in a new tab)`}
++         className={className}
++      >
++         {children}
++      </a>
++   ) : (
++      <div className={className}>{children}</div>
++   );
+ 
++export const ZigZagTimeline = () => {
+    // SVG Path computations for the long winding dashed line tying the blocks together
+    // We use vector-effect="non-scaling-stroke" to maintain consistent dash arrays regardless of squishing.
+    return (
+-      <div className="relative w-full pb-32" ref={containerRef}>
++      <div className="relative w-full pb-32">
+ 
+          {/* Background Curving Dashed Line */}
+          <div className="absolute left-1/2 top-10 transform -translate-x-1/2 w-[90%] md:w-[70%] lg:w-[60%] h-[92%] pointer-events-none opacity-40 md:opacity-70 z-0 select-none drop-shadow-sm">
+             <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full overflow-visible">
+                <path
+-                  d={dynamicPath}
++                  d={MOBILE_PATH}
++                  className="md:hidden"
++                  fill="none"
++                  stroke="url(#dash-gradient)"
++                  strokeWidth="1.5"
++                  vectorEffect="non-scaling-stroke"
++                  strokeDasharray="4, 6"
++               />
++               <path
++                  d={DESKTOP_PATH}
++                  className="hidden md:block"
+                   fill="none"
+                   stroke="url(#dash-gradient)"
+                   strokeWidth="1.5"
+@@ -88,14 +97,12 @@ export const ZigZagTimeline = () => {
+             {PROJECTS.map((proj, idx) => {
+                const isEven = idx % 2 === 0;
+                return (
+-                  <div
+-                     key={idx}
+-                     className={`w-full flex ${isEven ? 'justify-start' : 'justify-end'} px-4 md:px-0`}
+-                     style={{
+-                        // Creating a vertical overlap so the zig zag looks tightly packed rather than isolated blocks
+-                        marginTop: idx > 0 ? (typeof window !== 'undefined' && window.innerWidth < 768 ? "-8%" : "-6%") : "0"
+-                     }}
+-                     onClick={() => proj.link && window.open(proj.link, "_blank")}
++                  <CardWrapper
++                     key={proj.id}
++                     link={proj.link}
++                     title={proj.title}
++                     // Vertical overlap so the zig zag looks tightly packed rather than isolated blocks
++                     className={`w-full flex ${isEven ? 'justify-start' : 'justify-end'} px-4 md:px-0 ${idx > 0 ? '-mt-[8%] md:-mt-[6%]' : ''}`}
+                   >
+                      <motion.div
+                         variants={popIn}
+@@ -150,7 +157,7 @@ export const ZigZagTimeline = () => {
+                            </div>
+                         </div>
+                      </motion.div>
+-                  </div>
++                  </CardWrapper>
+                )
+             })}
+          </div>
+-- 
+2.43.0
+

@@ -1,33 +1,30 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { navLinks, siteConfig } from "@/constants";
 import { Menu, X, Download } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-export const AppNavbar = () => {
-  const [time, setTime] = useState("");
-  const [mounted, setMounted] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+const timeFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: siteConfig.timezone,
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: true,
+});
 
-  useEffect(() => {
-    setMounted(true);
-    const updateTime = () => {
-      const now = new Date();
-      const indiaTime = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + (330 * 60000));
-      const options: Intl.DateTimeFormatOptions = {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: true,
-      };
-      setTime(new Intl.DateTimeFormat("en-US", options).format(indiaTime));
-    };
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
-  }, []);
+const subscribeToClock = (onTick: () => void) => {
+  const interval = setInterval(onTick, 1000);
+  return () => clearInterval(interval);
+};
+const getLocalTime = () => timeFormatter.format(new Date());
+// The server can't know the visitor's render time, so it renders a placeholder.
+const getServerTime = () => "—";
+
+export const AppNavbar = () => {
+  const time = useSyncExternalStore(subscribeToClock, getLocalTime, getServerTime);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // Lock body scroll when menu is open
   useEffect(() => {
@@ -42,7 +39,7 @@ export const AppNavbar = () => {
   return (
     <>
       {/* ─── Desktop Navbar ─── */}
-      <nav className="hidden md:flex justify-between items-start w-full text-xs font-mono uppercase tracking-[0.3em] relative z-20">
+      <nav aria-label="Main" className="hidden md:flex justify-between items-start w-full text-xs font-mono uppercase tracking-[0.3em] relative z-20">
         <div className="flex gap-6 group cursor-pointer items-center">
           {navLinks.map((link) => (
             <Link key={link.href} href={link.href} className="hover:text-accent transition-colors duration-300 pointer-events-auto">{link.label}</Link>
@@ -59,7 +56,7 @@ export const AppNavbar = () => {
         <div className="flex gap-12 items-center">
           <div className="flex flex-col items-end">
             <span className="text-muted-foreground mb-1">Location / Time</span>
-            <span className="text-foreground">{siteConfig.location} {mounted ? time : "—"}</span>
+            <span className="text-foreground">{siteConfig.location} {time}</span>
           </div>
         </div>
       </nav>
@@ -69,11 +66,13 @@ export const AppNavbar = () => {
         {/* Left: Location + Time */}
         <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.15em]">
           <span className="text-foreground">{siteConfig.location}</span>
-          <span className="text-muted-foreground">{mounted ? time : "—"}</span>
+          <span className="text-muted-foreground">{time}</span>
         </div>
 
         {/* Right: Menu Button */}
         <button
+          type="button"
+          aria-expanded={menuOpen}
           onClick={() => setMenuOpen(true)}
           className="flex items-center gap-2 px-4 py-2 rounded-full border border-white/15 bg-white/5 backdrop-blur-md text-white text-[11px] font-mono uppercase tracking-[0.2em] hover:bg-white/10 transition-colors"
         >
@@ -140,7 +139,7 @@ export const AppNavbar = () => {
 
             {/* Bottom Info */}
             <div className="px-8 pb-10 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-              <span>{siteConfig.location} · {mounted ? time : "—"}</span>
+              <span>{siteConfig.location} · {time}</span>
             </div>
           </motion.div>
         )}

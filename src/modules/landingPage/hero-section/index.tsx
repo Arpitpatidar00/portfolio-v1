@@ -4,6 +4,7 @@ import { AppNavbar } from "@/layout/AppNavbar";
 import { AppConnect } from "@/components/AppConnect";
 import Link from "next/link";
 import { heroContent, routes } from "@/constants";
+import { HERO_BG_URL } from "@/constants/media";
 
 export const HeroSection = () => {
   return (
@@ -17,7 +18,7 @@ export const HeroSection = () => {
       <div
         className="absolute inset-0 z-0 pointer-events-none grayscale opacity-100 mix-blend-screen md:hidden"
         style={{
-          backgroundImage: 'url(/bg/herobg.png)',
+          backgroundImage: `url(${HERO_BG_URL})`,
           backgroundRepeat: 'no-repeat',
           backgroundSize: 'cover',
           backgroundPosition: 'center 20%',
@@ -29,7 +30,7 @@ export const HeroSection = () => {
         className="absolute right-0 top-0 h-full z-0 pointer-events-none grayscale opacity-100 mix-blend-screen hidden md:block"
         style={{
           width: '65vw',
-          backgroundImage: 'url(/bg/herobg.png)',
+          backgroundImage: `url(${HERO_BG_URL})`,
           backgroundRepeat: 'no-repeat',
           backgroundSize: 'contain',
           backgroundPosition: 'right center',
@@ -70,10 +71,12 @@ export const HeroSection = () => {
                   {heroContent.tagline}
                 </span>
                 <div className="space-y-2 sm:space-y-3 md:space-y-4">
-                  <h2 className="text-[2.25rem] flex flex-col sm:text-[3rem] md:text-4xl lg:text-6xl leading-[0.9] tracking-tight">
+                  {/* The page's single H1: names the person and the role for search engines. */}
+                  <h1 className="text-[2.25rem] flex flex-col sm:text-[3rem] md:text-4xl lg:text-6xl leading-[0.9] tracking-tight">
+                    <span className="sr-only">Arpit Patidar — Full-Stack &amp; Web3 Developer. </span>
                     <span className="font-serif italic font-light block sm:inline mr-4">Visual</span>
                     <span className="font-heading font-black uppercase text-accent accent-glow block sm:inline">Developer</span>
-                  </h2>
+                  </h1>
                   <p className="text-xs sm:text-sm md:text-base lg:text-lg font-sans uppercase tracking-[0.3em] text-white/50 font-medium">
                     {heroContent.subline}
                   </p>
@@ -96,9 +99,10 @@ export const HeroSection = () => {
 
           {/* Massive Logo — always visible */}
           <div className="relative w-full md:w-auto">
-            <h1 className="text-[22vw] sm:text-[16vw] md:text-[24vw] lg:text-[16vw] leading-[0.7] font-heading font-black tracking-[-0.08em] select-none text-white overflow-visible transition-all duration-700 md:text-right drop-shadow-[0_0_50px_rgba(255,255,255,0.05)]">
+            {/* Decorative wordmark: a <p> (not an H1) so it doesn't compete with the real page title. */}
+            <p aria-hidden="true" className="text-[22vw] sm:text-[16vw] md:text-[24vw] lg:text-[16vw] leading-[0.7] font-heading font-black uppercase tracking-[-0.08em] select-none text-white overflow-visible transition-all duration-700 md:text-right drop-shadow-[0_0_50px_rgba(255,255,255,0.05)]">
               Code
-            </h1>
+            </p>
           </div>
         </footer>
       </div>

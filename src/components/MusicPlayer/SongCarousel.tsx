@@ -49,9 +49,9 @@ export const SongCarousel = ({ currentIndex, onSelect }: SongCarouselProps) => {
                 <Image
                   src={song.coverImg}
                   fill
+                  sizes="(min-width: 768px) 280px, (min-width: 640px) 220px, 160px"
                   alt={song.title}
                   className="object-cover"
-                  unoptimized
                 />
 
                 {/* Active Card Footer Branding (matches image) */}

@@ -13,26 +13,44 @@ interface MailOptions {
 const rawHost = process.env.SMTP_HOST || "";
 const smtpHost = rawHost.includes("gmail.com") ? "smtp.gmail.com" : rawHost;
 
+// TLS certificates are verified (the previous `rejectUnauthorized: false`
+// allowed man-in-the-middle interception of the SMTP password).
 const transporter = nodemailer.createTransport({
   host: smtpHost,
   port: Number(process.env.SMTP_PORT) || 587,
-  secure: process.env.SMTP_SECURE === "true", 
+  secure: process.env.SMTP_SECURE === "true",
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASSWORD,
   },
-  tls: {
-    rejectUnauthorized: false
-  }
 });
 
-export const sendMail = async ({
-  firstName,
-  lastName,
-  email,
-  subject,
-  message,
-}: MailOptions) => {
+/** Escapes user input before it is placed in the HTML email. */
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+/** Strips characters that could inject extra mail headers. */
+const singleLine = (value: string) => value.replace(/[\r\n]+/g, " ").trim();
+
+export const sendMail = async (options: MailOptions) => {
+  const firstName = singleLine(options.firstName);
+  const lastName = singleLine(options.lastName);
+  const email = singleLine(options.email);
+  const subject = singleLine(options.subject);
+  const message = options.message;
+
+  const safe = {
+    name: escapeHtml(`${firstName} ${lastName}`),
+    email: escapeHtml(email),
+    subject: escapeHtml(subject),
+    message: escapeHtml(message).replace(/\n/g, "<br>"),
+  };
+
   const mailContentText = `
     New Inquiry from ${firstName} ${lastName}
     -----------------------------------------
@@ -67,29 +85,29 @@ export const sendMail = async ({
     <body>
       <div class="container">
         <div class="header">
-          <div class="status-badge">New Workspace Inquiry</div>
-          <h1>LEGENDARIUM</h1>
+          <div class="status-badge">New Portfolio Inquiry</div>
+          <h1>ARPIT PATIDAR</h1>
         </div>
         <div class="content">
           <div class="field-group">
             <div class="field-label">From Participant</div>
-            <div class="field-value">${firstName} ${lastName}</div>
+            <div class="field-value">${safe.name}</div>
           </div>
           
           <div class="field-group">
             <div class="field-label">Contact Channel</div>
-            <div class="field-value"><a href="mailto:${email}" class="link">${email}</a></div>
+            <div class="field-value"><a href="mailto:${safe.email}" class="link">${safe.email}</a></div>
           </div>
           
           <div class="field-group">
             <div class="field-label">Declared Subject</div>
-            <div class="field-value">${subject}</div>
+            <div class="field-value">${safe.subject}</div>
           </div>
           
           <div class="field-group">
             <div class="field-label">The Message</div>
             <div class="message-block">
-              ${message.replace(/\n/g, "<br>")}
+              ${safe.message}
             </div>
           </div>
         </div>
@@ -97,7 +115,7 @@ export const sendMail = async ({
           <div class="footer-text">
             This inquiry was dispatched from your <span class="link">Portfolio Workspace</span>.
             <br>
-            &copy; ${new Date().getFullYear()} Legendarium Engine.
+            &copy; ${new Date().getFullYear()} Arpit Patidar.
           </div>
         </div>
       </div>
@@ -106,10 +124,10 @@ export const sendMail = async ({
   `;
 
   const info = await transporter.sendMail({
-    from: `"${firstName} ${lastName}" <${process.env.SMTP_USER}>`,
+    from: `"${`${firstName} ${lastName}`.replace(/"/g, "")}" <${process.env.SMTP_USER}>`,
     to: process.env.RECEIVER_EMAIL,
     replyTo: email,
-    subject: `[LEGENDARIUM] New Message: ${subject}`,
+    subject: `[Portfolio] New Message: ${subject}`,
     text: mailContentText,
     html: mailContentHtml,
   });

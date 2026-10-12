@@ -44,14 +44,14 @@ export const Footer = () => {
 
         {/* Social Pillar */}
         <div className="flex flex-col gap-4 sm:gap-6 md:gap-8">
-          <span className="text-white/40 text-xs sm:text-sm tracking-widest uppercase font-bold">
+          <span className="text-white/60 text-xs sm:text-sm tracking-widest uppercase font-bold">
             Find me at:
           </span>
           <div className="flex items-center gap-6 sm:gap-8 md:gap-12">
             {SOCIALS.map((social, i) => (
               <a
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer me"
                 key={i}
                 href={social.href}
                 className="text-white/60 hover:text-white transition-all duration-300 hover:scale-110"
@@ -76,9 +76,10 @@ export const Footer = () => {
 
       {/* 2. Massive Branded Backdrop */}
       <div className="relative mt-12 sm:mt-16 md:mt-20 select-none pointer-events-none">
-        <h2 className="text-[20vw] sm:text-[25vw] leading-[0.75] font-heading font-black uppercase text-[#FF6B00] tracking-tighter opacity-100 whitespace-nowrap translate-y-[20%]">
+        {/* Decorative wordmark: <p> so every page doesn't end with an extra "Arpit" heading */}
+        <p aria-hidden="true" className="text-[20vw] sm:text-[25vw] leading-[0.75] font-heading font-black uppercase text-[#FF6B00] tracking-tighter opacity-100 whitespace-nowrap translate-y-[20%]">
           Arpit
-        </h2>
+        </p>
       </div>
 
     </footer>
