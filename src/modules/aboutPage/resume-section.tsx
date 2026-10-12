@@ -1,3 +1,5 @@
+"use client";
+
 import { motion } from "framer-motion";
 
 const EDUCATION_DATA = [
@@ -176,7 +178,7 @@ export const ResumeSection = () => {
             <div className="flex flex-col gap-6">
               {SKILLS_DATA.map((skill, i) => (
                 <div key={i} className="space-y-2">
-                  <h4 className="text-[10px] sm:text-xs text-muted-foreground uppercase font-black tracking-[0.2em]">{skill.category}</h4>
+                  <h3 className="text-[10px] sm:text-xs text-muted-foreground uppercase font-black tracking-[0.2em]">{skill.category}</h3>
                   <motion.div
                     className="flex flex-wrap gap-2 pt-1"
                     variants={fastStagger}

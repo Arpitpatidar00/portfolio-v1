@@ -123,7 +123,7 @@ export const ExperienceSection = () => {
               onMouseEnter={() => setHoveredIdx(i)}
             >
               <div className="flex flex-col flex-shrink-0 md:w-[200px] mb-3 sm:mb-4 md:mb-0">
-                <span className="text-white/40 text-[11px] sm:text-[13px] md:text-sm tracking-widest uppercase mb-1 sm:mb-2 font-medium">
+                <span className="text-white/60 text-[11px] sm:text-[13px] md:text-sm tracking-widest uppercase mb-1 sm:mb-2 font-medium">
                   {exp.startDate}
                 </span>
                 <span className="text-white text-lg sm:text-xl md:text-2xl uppercase font-bold tracking-wider">
@@ -134,9 +134,10 @@ export const ExperienceSection = () => {
               <div className="hidden md:flex h-12 w-[1px] bg-white/20 mx-8 transition-colors duration-300 group-hover:bg-accent/50" />
 
               <div className="flex flex-col flex-grow">
-                <h4 className="text-xl sm:text-2xl md:text-[2.25rem] font-bold text-white mb-1 sm:mb-2 tracking-tight leading-[1.1] sm:leading-none group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-white/60 transition-all duration-300">
+                {/* h3 (was h4) keeps the heading outline sequential under the section's h2 */}
+                <h3 className="text-xl sm:text-2xl md:text-[2.25rem] font-bold text-white mb-1 sm:mb-2 tracking-tight leading-[1.1] sm:leading-none group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-white/60 transition-all duration-300">
                   {exp.role}
-                </h4>
+                </h3>
                 <span className="text-white/50 text-sm sm:text-base md:text-lg font-medium">
                   {exp.company}
                 </span>
@@ -146,12 +147,14 @@ export const ExperienceSection = () => {
                 </span>
               </div>
 
-              <div
+              <button
+                type="button"
+                aria-label={`Details: ${exp.role} at ${exp.company}`}
                 className="flex-shrink-0 md:ml-auto flex items-center justify-center mt-4 sm:mt-5 md:mt-0 w-10 h-10 sm:w-11 sm:h-11 md:w-12 md:h-12 rounded-full border border-white/10 group-hover:bg-white/5 group-hover:border-white/20 transition-all duration-300 self-end md:self-auto cursor-pointer"
                 onClick={() => setSelectedExpIdx(i)}
               >
                 <ArrowUpRight className="w-4 h-4 sm:w-5 sm:h-5 text-white/50 group-hover:text-white group-hover:translate-x-[2px] group-hover:-translate-y-[2px] transition-transform duration-300" />
-              </div>
+              </button>
             </div>
           ))}
         </div>
@@ -197,6 +200,8 @@ export const ExperienceSection = () => {
                       </p>
                     </div>
                     <button
+                      type="button"
+                      aria-label="Close"
                       onClick={() => setSelectedExpIdx(null)}
                       className="p-2 sm:p-3 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-colors group"
                     >

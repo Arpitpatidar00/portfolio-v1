@@ -11,7 +11,7 @@ import { useAudioPlayer } from "@/hooks/useAudioPlayer";
 export const MusicOverlay = () => {
   const [isHovered, setIsHovered] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-  const { isPlaying, togglePlay, isInitialized, currentTrack } = useAudioPlayer();
+  const { isPlaying, togglePlay, currentTrack } = useAudioPlayer();
 
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation(); // Don't open the full player

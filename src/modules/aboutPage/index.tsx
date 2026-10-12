@@ -1,4 +1,3 @@
-"use client";
 import { AppNavbar } from "@/layout/AppNavbar";
 import { HeroSection } from "./hero-section";
 import { ResumeSection } from "./resume-section";

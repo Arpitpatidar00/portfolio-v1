@@ -81,8 +81,8 @@ const ALL_IMAGES = [
   },
   {
     title: "State Mgmt",
-    image: "/icons/zustand.svg",
-    skillIcons: ["/icons/zustand.svg", "/icons/redux.svg", "/icons/react.svg"],
+    image: "/icons/zustand.webp",
+    skillIcons: ["/icons/zustand.webp", "/icons/redux.svg", "/icons/react.svg"],
     color: "#764ABC"
   }
 ];
@@ -106,11 +106,22 @@ const GEOMETRY_SIZE = (2 * R_FINAL) + CARD_SIZE_PX;
 
 /* ─── Card Shapes ───────────────────────────────── */
 
+/**
+ * Deterministic 0–1 "random" value. Math.random() during render would give the
+ * server and client different markup (hydration mismatch) and re-shuffle the
+ * icons on every re-render.
+ */
+const jitter = (seed: string, salt: number) => {
+  let hash = salt;
+  for (let i = 0; i < seed.length; i++) hash = Math.imul(hash ^ seed.charCodeAt(i), 2654435761);
+  return ((hash >>> 0) % 1000) / 1000;
+};
+
 const FloatingIcon = ({ src, delay, index, totalItems }: { src: string; delay: number; index: number; totalItems: number }) => {
   // Calculate a varied position, reaching OUTSIDE the 280x280 card.
   // We use totalItems to evenly distribute them around the circle so they NEVER overlap, even with 4+ items.
-  const angle = (index * (360 / totalItems) + (Math.random() * 20 - 10)) * (Math.PI / 180);
-  const radius = 180 + Math.random() * 40;
+  const angle = (index * (360 / totalItems) + (jitter(src, 1) * 20 - 10)) * (Math.PI / 180);
+  const radius = 180 + jitter(src, 2) * 40;
   const baseX = Math.cos(angle) * radius;
   const baseY = Math.sin(angle) * radius;
 
@@ -141,13 +152,13 @@ const FloatingIcon = ({ src, delay, index, totalItems }: { src: string; delay: n
           rotate: [-15, 15, -15]
         }}
         transition={{
-          y: { duration: 3.5 + Math.random(), repeat: Infinity, ease: "easeInOut" },
-          x: { duration: 4.5 + Math.random(), repeat: Infinity, ease: "easeInOut" },
-          rotate: { duration: 5.5 + Math.random(), repeat: Infinity, ease: "easeInOut" }
+          y: { duration: 3.5 + jitter(src, 3), repeat: Infinity, ease: "easeInOut" },
+          x: { duration: 4.5 + jitter(src, 4), repeat: Infinity, ease: "easeInOut" },
+          rotate: { duration: 5.5 + jitter(src, 5), repeat: Infinity, ease: "easeInOut" }
         }}
         className="p-3 sm:p-4 bg-white/10 backdrop-blur-2xl rounded-[24px] sm:rounded-[32px] border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex items-center justify-center pointer-events-auto cursor-pointer hover:bg-white/20 transition-colors"
       >
-        <Image src={src} width={80} height={80} alt="Skill" className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 object-contain filter drop-shadow-2xl brightness-110" unoptimized />
+        <Image src={src} width={80} height={80} alt="Skill" className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 object-contain filter drop-shadow-2xl brightness-110"/>
       </motion.div>
     </motion.div>
   );
@@ -194,7 +205,7 @@ const TopCard = ({ index, p, item }: { index: number; p: MotionValue<number>; it
           borderRadius: "22px",
         }}
       >
-        <Image src={item.image} fill alt={item.title} className="object-cover opacity-60 group-hover:opacity-40 transition-opacity duration-300 p-12" unoptimized />
+        <Image src={item.image} fill alt={item.title} className="object-cover opacity-60 group-hover:opacity-40 transition-opacity duration-300 p-12"/>
 
         {/* Content Overlay */}
         <div className="absolute inset-0 p-4 sm:p-6 flex flex-col justify-between z-20">
@@ -258,7 +269,7 @@ const BotCard = ({ index, p, item }: { index: number; p: MotionValue<number>; it
           borderRadius: "22px",
         }}
       >
-        <Image src={item.image} fill alt={item.title} className="object-cover opacity-60 group-hover:opacity-40 transition-opacity duration-300 p-12" unoptimized />
+        <Image src={item.image} fill alt={item.title} className="object-cover opacity-60 group-hover:opacity-40 transition-opacity duration-300 p-12"/>
 
         {/* Content Overlay */}
         <div className="absolute inset-0 p-4 sm:p-6 flex flex-col justify-between z-20">

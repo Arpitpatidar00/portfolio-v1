@@ -99,10 +99,10 @@ export const IdentitySection = () => {
             <div className="absolute inset-0 z-10 w-[140%] h-[120%] -ml-[20%] mt-[5%] pointer-events-none">
               <Image
                 src="/self.png"
-                alt="Portrait"
+                alt="Portrait of Arpit Patidar"
                 fill
+                sizes="(min-width: 768px) 490px, (min-width: 640px) 365px, 295px"
                 className="object-cover grayscale contrast-[1.15] opacity-90 mix-blend-multiply"
-                unoptimized
               />
             </div>
 

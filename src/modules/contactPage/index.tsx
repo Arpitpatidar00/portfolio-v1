@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { AppNavbar } from "@/layout/AppNavbar";
+import { contactContent } from "@/constants";
 
 export const ContactPage = () => {
   const [formData, setFormData] = useState({
@@ -12,6 +13,7 @@ export const ContactPage = () => {
     email: "",
     subject: "",
     message: "",
+    website: "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -56,12 +58,12 @@ export const ContactPage = () => {
       if (response.ok) {
         setStatus("success");
         setStatusMessage("Thank you! Your message has been sent successfully.");
-        setFormData({ firstName: "", lastName: "", email: "", subject: "", message: "" });
+        setFormData({ firstName: "", lastName: "", email: "", subject: "", message: "", website: "" });
       } else {
         setStatus("error");
         setStatusMessage(result.error || "Failed to send message.");
       }
-    } catch (error) {
+    } catch {
       setStatus("error");
       setStatusMessage("Something went wrong. Please try again later.");
     }
@@ -102,10 +104,10 @@ export const ContactPage = () => {
             <div className="relative w-full h-full overflow-hidden">
               <Image
                 src="/personal/image7.jpeg"
-                alt="Texture"
+                alt=""
                 fill
+                sizes="(min-width: 768px) 236px, 116px"
                 className="object-cover opacity-80 contrast-125"
-                unoptimized
               />
             </div>
           </motion.div>
@@ -120,10 +122,10 @@ export const ContactPage = () => {
             <div className="relative w-full h-full overflow-hidden">
               <Image
                 src="/personal/image18.jpeg"
-                alt="Atmosphere"
+                alt=""
                 fill
+                sizes="(min-width: 768px) 204px, 104px"
                 className="object-cover"
-                unoptimized
               />
             </div>
           </motion.div>
@@ -138,11 +140,12 @@ export const ContactPage = () => {
             <div className="relative w-full h-full overflow-hidden">
               <Image
                 src="/personal/image8.jpeg"
-                alt="Main Character"
+                alt="Arpit Patidar"
                 fill
-                priority
+                sizes="(min-width: 768px) 368px, 268px"
+                loading="eager"
+                fetchPriority="high"
                 className="object-cover grayscale opacity-80"
-                unoptimized
               />
             </div>
           </motion.div>
@@ -157,10 +160,10 @@ export const ContactPage = () => {
             <div className="relative w-full h-full overflow-hidden">
               <Image
                 src="/personal/image19.jpeg"
-                alt="Self"
+                alt=""
                 fill
+                sizes="(min-width: 768px) 164px, 104px"
                 className="object-cover contrast-110"
-                unoptimized
               />
             </div>
           </motion.div>
@@ -175,10 +178,10 @@ export const ContactPage = () => {
             <div className="relative w-full h-full overflow-hidden">
               <Image
                 src="/personal/image14.jpeg"
-                alt="Details"
+                alt=""
                 fill
+                sizes="(min-width: 768px) 184px, 124px"
                 className="object-cover"
-                unoptimized
               />
             </div>
           </motion.div>
@@ -200,12 +203,30 @@ export const ContactPage = () => {
 
           {/* Left side: Minimal Form */}
           <div className="space-y-12">
-            <form className="space-y-8" onSubmit={handleSubmit}>
+            <form className="space-y-8" onSubmit={handleSubmit} noValidate>
+              {/* Honeypot: invisible to people, bots fill it and get silently dropped by the API. */}
+              <div aria-hidden="true" className="absolute -left-[9999px] w-px h-px overflow-hidden">
+                <label htmlFor="contact-website">Website</label>
+                <input
+                  id="contact-website"
+                  type="text"
+                  name="website"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={formData.website}
+                  onChange={handleChange}
+                />
+              </div>
               <div className="grid grid-cols-2 gap-8">
                 <div className="space-y-2">
+                  <label htmlFor="contact-firstName" className="sr-only">First Name</label>
                   <input
+                    id="contact-firstName"
                     type="text"
                     name="firstName"
+                    autoComplete="given-name"
+                    required
+                    aria-invalid={Boolean(errors.firstName)}
                     value={formData.firstName}
                     onChange={handleChange}
                     placeholder="First Name"
@@ -214,9 +235,14 @@ export const ContactPage = () => {
                   {errors.firstName && <span className="text-[10px] font-mono text-accent uppercase tracking-wider">{errors.firstName}</span>}
                 </div>
                 <div className="space-y-2">
+                  <label htmlFor="contact-lastName" className="sr-only">Last Name</label>
                   <input
+                    id="contact-lastName"
                     type="text"
                     name="lastName"
+                    autoComplete="family-name"
+                    required
+                    aria-invalid={Boolean(errors.lastName)}
                     value={formData.lastName}
                     onChange={handleChange}
                     placeholder="Last Name"
@@ -227,9 +253,14 @@ export const ContactPage = () => {
               </div>
 
               <div className="space-y-2">
+                <label htmlFor="contact-email" className="sr-only">Email Address</label>
                 <input
+                  id="contact-email"
                   type="email"
                   name="email"
+                  autoComplete="email"
+                  required
+                  aria-invalid={Boolean(errors.email)}
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="Email Address"
@@ -239,9 +270,14 @@ export const ContactPage = () => {
               </div>
 
               <div className="space-y-2">
+                <label htmlFor="contact-subject" className="sr-only">Subject</label>
                 <input
+                  id="contact-subject"
                   type="text"
                   name="subject"
+                  autoComplete="off"
+                  required
+                  aria-invalid={Boolean(errors.subject)}
                   value={formData.subject}
                   onChange={handleChange}
                   placeholder="Subject"
@@ -251,8 +287,12 @@ export const ContactPage = () => {
               </div>
 
               <div className="space-y-2">
+                <label htmlFor="contact-message" className="sr-only">Message</label>
                 <textarea
+                  id="contact-message"
                   name="message"
+                  required
+                  aria-invalid={Boolean(errors.message)}
                   value={formData.message}
                   onChange={handleChange}
                   placeholder="Type your message here..."
@@ -266,6 +306,7 @@ export const ContactPage = () => {
               <AnimatePresence>
                 {statusMessage && (
                   <motion.div
+                    role="status"
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
@@ -336,14 +377,14 @@ export const ContactPage = () => {
               className="space-y-8"
             >
               <h2 className="text-5xl md:text-7xl lg:text-[5.5rem] font-heading font-black leading-[0.9] text-accent">
-                LET'S CREATE<br />
-                THE IMPOSSIBLE —<br />
-                TOGETHER
+                {contactContent.cta.line1}<br />
+                {contactContent.cta.line2}<br />
+                {contactContent.cta.line3}
               </h2>
 
               <div className="max-w-md space-y-6">
                 <p className="text-[11px] font-mono uppercase tracking-[0.2em] leading-relaxed text-white/50">
-                  LEGENDARIUM IS MORE THAN A MAGAZINE — IT'S A NEXUS FOR VISIONARIES, DISRUPTORS, AND PHENOMENA-IN-THE-MAKING. WHETHER YOU'RE READY TO BE FEATURED, CONTRIBUTE YOUR GENIUS, OR EXPLORE PARTNERSHIP OPPORTUNITIES, THIS IS WHERE THE CONVERSATION BEGINS.
+                  {contactContent.description}
                 </p>
               </div>
             </motion.div>

@@ -1,72 +1,79 @@
 "use client";
 
-import React, { useRef } from "react";
+import React from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
-
-const PROJECTS = [
-   { id: "01", year: "2024", category: "WEB APP", title: "7wovs Wedding", src: "/selected-work/7wovs.png", rotation: "rotate-[-2deg]", link: "https://7vowswed.com" },
-   { id: "02", year: "2024", category: "WEB APP", title: "EasyMB", src: "/selected-work/easymb.png", rotation: "rotate-[-2deg]", link: "https://easymb.in" },
-   { id: "03", year: "2024-25", category: "E-COMMERCE", title: "Ubuntu Interior", src: "/selected-work/ubuntu.png", rotation: "rotate-[-1deg]", link: "http://ubuntuinterior.com" },
-   { id: "04", year: "2025", category: "CRM", title: "Acent Tech", src: "", rotation: "rotate-[4deg]", link: "" },
-   { id: "05", year: "2025", category: "SaaS", title: "Vireo Setup", src: "/selected-work/vireo.png", rotation: "rotate-[4deg]", link: "https://dev.vireo.me" },
-   { id: "06", year: "2025-26", category: "DEFI", title: "Stable Coin", src: "/selected-work/stable.png", rotation: "rotate-[2deg]", link: "https://stablecoinpay.io" },
-   { id: "07", year: "2025-26", category: "DEFI", title: "Stable Link", src: "/selected-work/stable-link.png", rotation: "rotate-[2deg]", link: "http://stables.link" },
-   { id: "08", year: "2025-26", category: "PLATFORM", title: "Intent Flow", src: "/selected-work/intent.png", rotation: "rotate-[3deg]", link: "http://intentswap.io" },
-   { id: "09", year: "2025-26", category: "WEB3", title: "Metasub App", src: "/selected-work/metasub.png", rotation: "rotate-[-3deg]", link: "https://metasub.xyz" },
-   { id: "10", year: "2025-26", category: "WEB3 ACADEMY", title: "Adventure Dao", src: "/selected-work/adventure.png", rotation: "rotate-[-3deg]", link: "https://adventuredao.com" },
-
-];
+import { PROJECTS } from "@/constants/projects";
 
 const popIn = {
    hidden: { opacity: 0, scale: 0.85, y: 80, filter: "blur(10px)" },
    visible: { opacity: 1, scale: 1, y: 0, filter: "blur(0px)", transition: { type: "spring" as const, stiffness: 200, damping: 20, mass: 1 } }
 };
 
+/** Builds the winding dashed path; amplitude is narrower on mobile. */
+const buildPath = (count: number, narrowX: number, wideX: number) => {
+   if (count === 0) return "";
+   const gap = 100 / count;
+   let path = `M 50 0`;
+   for (let i = 0; i < count; i++) {
+      const yStart = i * gap;
+      const yEnd = yStart + gap;
+      const ctrlX = i % 2 === 0 ? narrowX : wideX;
+      path += ` C ${ctrlX} ${yStart + gap * 0.25}, ${ctrlX} ${yEnd - gap * 0.25}, 50 ${yEnd}`;
+   }
+   return path;
+};
+
+// Both variants are rendered and toggled with CSS, so server and client HTML
+// match (reading window.innerWidth during render caused hydration mismatches).
+const DESKTOP_PATH = buildPath(PROJECTS.length, 5, 95);
+const MOBILE_PATH = buildPath(PROJECTS.length, 30, 70);
+
+/** Real <a> links (not window.open) so crawlers and keyboard users can follow them. */
+const CardWrapper = ({
+   link,
+   className,
+   children,
+}: {
+   link: string;
+   className: string;
+   children: React.ReactNode;
+}) =>
+   link ? (
+      <a
+         href={link}
+         target="_blank"
+         rel="noopener noreferrer"
+         className={className}
+      >
+         {children}
+         <span className="sr-only">(opens in a new tab)</span>
+      </a>
+   ) : (
+      <div className={className}>{children}</div>
+   );
+
 export const ZigZagTimeline = () => {
-   const containerRef = useRef<HTMLDivElement>(null);
-
-   // Dynamically calculate the SVG path so it scales perfectly with any number of projects!
-   // It creates N distinct back-and-forth waves.
-   const dynamicPath = React.useMemo(() => {
-      const count = PROJECTS.length;
-      if (count === 0) return "";
-      const gap = 100 / count;
-      let path = `M 50 0`;
-
-      // On mobile, we reduce the horizontal "zig-zag" amplitude for a cleaner look
-      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-      
-      for (let i = 0; i < count; i++) {
-         const yStart = i * gap;
-         const yEnd = yStart + gap;
-         
-         // On mobile (narrower container), use 25/75 instead of 5/95
-         const wideX = 95;
-         const narrowX = 5;
-         const mobileWideX = 70;
-         const mobileNarrowX = 30;
-
-         const ctrlX = i % 2 === 0 
-            ? (isMobile ? mobileNarrowX : narrowX) 
-            : (isMobile ? mobileWideX : wideX);
-
-         path += ` C ${ctrlX} ${yStart + gap * 0.25}, ${ctrlX} ${yEnd - gap * 0.25}, 50 ${yEnd}`;
-      }
-      return path;
-   }, [PROJECTS.length]);
-
-
    // SVG Path computations for the long winding dashed line tying the blocks together
    // We use vector-effect="non-scaling-stroke" to maintain consistent dash arrays regardless of squishing.
    return (
-      <div className="relative w-full pb-32" ref={containerRef}>
+      <div className="relative w-full pb-32">
 
          {/* Background Curving Dashed Line */}
          <div className="absolute left-1/2 top-10 transform -translate-x-1/2 w-[90%] md:w-[70%] lg:w-[60%] h-[92%] pointer-events-none opacity-40 md:opacity-70 z-0 select-none drop-shadow-sm">
             <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full overflow-visible">
                <path
-                  d={dynamicPath}
+                  d={MOBILE_PATH}
+                  className="md:hidden"
+                  fill="none"
+                  stroke="url(#dash-gradient)"
+                  strokeWidth="1.5"
+                  vectorEffect="non-scaling-stroke"
+                  strokeDasharray="4, 6"
+               />
+               <path
+                  d={DESKTOP_PATH}
+                  className="hidden md:block"
                   fill="none"
                   stroke="url(#dash-gradient)"
                   strokeWidth="1.5"
@@ -88,14 +95,11 @@ export const ZigZagTimeline = () => {
             {PROJECTS.map((proj, idx) => {
                const isEven = idx % 2 === 0;
                return (
-                  <div
-                     key={idx}
-                     className={`w-full flex ${isEven ? 'justify-start' : 'justify-end'} px-4 md:px-0`}
-                     style={{
-                        // Creating a vertical overlap so the zig zag looks tightly packed rather than isolated blocks
-                        marginTop: idx > 0 ? (typeof window !== 'undefined' && window.innerWidth < 768 ? "-8%" : "-6%") : "0"
-                     }}
-                     onClick={() => proj.link && window.open(proj.link, "_blank")}
+                  <CardWrapper
+                     key={proj.id}
+                     link={proj.link}
+                     // Vertical overlap so the zig zag looks tightly packed rather than isolated blocks
+                     className={`w-full flex ${isEven ? 'justify-start' : 'justify-end'} px-4 md:px-0 ${idx > 0 ? '-mt-[8%] md:-mt-[6%]' : ''}`}
                   >
                      <motion.div
                         variants={popIn}
@@ -127,7 +131,9 @@ export const ZigZagTimeline = () => {
                                  src={proj.src}
                                  alt={proj.title}
                                  fill
-                                 sizes="(max-width: 768px) 100vw, 400px"
+                                 sizes="(min-width: 1024px) 412px, (min-width: 768px) 352px, 288px"
+                                 loading={idx === 0 ? "eager" : undefined}
+                                 fetchPriority={idx === 0 ? "high" : undefined}
                                  className="object-cover transition-transform duration-700 ease-[0.16,1,0.3,1] group-hover:scale-110 opacity-90 group-hover:opacity-100"
                               />
                            ) : (
@@ -142,7 +148,7 @@ export const ZigZagTimeline = () => {
 
                         <div className="space-y-1.5 text-card-foreground px-3 pb-2 text-center md:text-left">
                            <span className="text-xs font-black font-sans text-muted-foreground tracking-[0.15em]">{proj.id}</span>
-                           <h3 className="text-2xl md:text-3xl font-black font-heading tracking-tighter uppercase leading-[0.9] group-hover:text-accent transition-colors duration-300">{proj.title}</h3>
+                           <h2 className="text-2xl md:text-3xl font-black font-heading tracking-tighter uppercase leading-[0.9] group-hover:text-accent transition-colors duration-300">{proj.title}</h2>
                            <div className="flex items-center justify-center md:justify-start gap-3 text-xs md:text-sm font-bold text-muted-foreground uppercase tracking-widest pt-1">
                               <span>{proj.category}</span>
                               <span className="w-1 h-1 rounded-full bg-border" />
@@ -150,7 +156,7 @@ export const ZigZagTimeline = () => {
                            </div>
                         </div>
                      </motion.div>
-                  </div>
+                  </CardWrapper>
                )
             })}
          </div>

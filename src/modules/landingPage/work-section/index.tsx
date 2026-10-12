@@ -29,7 +29,7 @@ const WORK_DATA = [
   {
     id: 2,
     title: "7VowsWed",
-    subtitle: "Omuke trughte a otufta",
+    subtitle: "Wedding web app",
     image: "/selected-work/7wovs.png",
     icon: TreeDeciduous,
     color: "#65004e",
@@ -38,7 +38,7 @@ const WORK_DATA = [
   {
     id: 3,
     title: "Ubuntu",
-    subtitle: "Omuke trughte a otufta",
+    subtitle: "Interior e-commerce platform",
     image: "/selected-work/ubuntu.png",
     icon: UserRound,
     color: "#72685c",
@@ -69,7 +69,10 @@ const WORK_DATA = [
 const RedirectionBadge = ({ isExpanded, color, link }: { isExpanded: boolean, color: string, link: string }) => (
   <AnimatePresence>
     {isExpanded && (
-      <motion.div
+      <motion.a
+        href={link}
+        target="_blank"
+        rel="noopener noreferrer"
         initial={{ opacity: 0, scale: 0.5, rotate: -10 }}
         animate={{ opacity: 1, scale: 1, rotate: 0 }}
         exit={{ opacity: 0, scale: 0.5, rotate: -10 }}
@@ -77,16 +80,14 @@ const RedirectionBadge = ({ isExpanded, color, link }: { isExpanded: boolean, co
         style={{ backgroundColor: color }}
         whileHover={{ scale: 1.05, filter: "brightness(1.1)" }}
         whileTap={{ scale: 0.95 }}
-        onClick={(e) => {
-          e.stopPropagation();
-          window.open(link, '_blank');
-        }}
+        // Keep the click from also toggling the card underneath.
+        onClick={(e) => e.stopPropagation()}
       >
         <span className="text-white text-[9px] sm:text-[10px] font-black uppercase tracking-[0.15em] sm:tracking-[0.2em]">Visit</span>
         <div className="flex items-center justify-center h-7 w-7 sm:h-8 sm:w-8 md:h-10 md:w-10 rounded-full bg-white/20 group-hover:bg-white/30 transition-colors">
           <ArrowUpRight size={16} className="sm:w-5 sm:h-5 text-white transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
         </div>
-      </motion.div>
+      </motion.a>
     )}
   </AnimatePresence>
 );
@@ -134,13 +135,13 @@ const ExpandingCard = ({ item, isExpanded, onHover, isMobileLayout }: CardProps)
           mask: isExpanded && !isMobileLayout ? NOTCH_MASK : "none",
         }}
       >
+        {/* Optimized (AVIF/WebP, resized) instead of the raw 1–6 MB PNGs; not preloaded because it's below the fold. */}
         <Image
           src={item.image}
-          alt={item.title}
+          alt={`${item.title} — ${item.subtitle}`}
           fill
+          sizes="(min-width: 1280px) 720px, (min-width: 768px) 60vw, 100vw"
           className="object-cover object-center transition-transform duration-700 group-hover:scale-105"
-          priority={isExpanded}
-          unoptimized
         />
 
         <div className={`absolute inset-0 bg-black/10 transition-opacity duration-300 ${isExpanded ? 'opacity-0' : 'opacity-30 group-hover:opacity-10'}`} />
@@ -268,7 +269,7 @@ export const WorkSection = () => {
 
       {/* Hint */}
       <motion.p
-        className="mt-8 sm:mt-12 text-muted-foreground/30 text-[9px] sm:text-[10px] font-mono tracking-[0.3em] uppercase"
+        className="mt-8 sm:mt-12 text-muted-foreground/70 text-[9px] sm:text-[10px] font-mono tracking-[0.3em] uppercase"
         animate={{ opacity: [0.2, 0.5, 0.2] }}
         transition={{ duration: 3, repeat: Infinity }}
       >

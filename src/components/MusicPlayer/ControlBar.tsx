@@ -75,7 +75,7 @@ export const ControlBar = ({
         <div className="flex-1 flex items-center gap-2 sm:gap-3 bg-black/40 rounded-full py-1 px-1 sm:pr-5 border border-white/5 mx-1 sm:mx-4 overflow-hidden min-w-[60px] sm:min-w-[200px]">
             {/* Album Thumbnail - Always show if possible, or hide on very small */}
             <div className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-full sm:rounded-[14px] overflow-hidden shrink-0 shadow-lg">
-                <Image src={currentTrack.coverImg} fill alt="Cover" className="object-cover" unoptimized />
+                <Image src={currentTrack.coverImg} fill sizes="40px" alt="" className="object-cover" />
                 {!isPlaying && (
                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                         <div className="w-1 h-2 sm:h-3 bg-white/60 rounded-full animate-pulse mx-0.5" />
