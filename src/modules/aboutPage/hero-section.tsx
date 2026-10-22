@@ -117,7 +117,7 @@ export const HeroSection = () => {
             visual<br />Developer
           </h1>
           <p className="max-w-md text-sm md:text-base text-muted-foreground leading-relaxed font-medium pt-4 md:pl-10 lg:pl-[20%]">
-            I am a visual developer with a passion for creating beautiful and interactive web experiences. I specialize in front-end development and use modern technologies to bring my ideas to life.
+            I am a full-stack & Web3 engineer who builds products end to end, from cross-chain payment flows and wallet integrations to the interfaces people use every day. I work in Next.js, Node.js and TypeScript, and I ship to production.
           </p>
         </motion.div>
 
@@ -149,7 +149,7 @@ export const HeroSection = () => {
             </p>
           </motion.div>
           <motion.div className="space-y-2" variants={fadeUp}>
-            <span className="text-4xl sm:text-5xl md:text-6xl font-black font-heading tracking-tighter">2+</span>
+            <span className="text-4xl sm:text-5xl md:text-6xl font-black font-heading tracking-tighter">3+</span>
             <p className="text-[10px] md:text-xs text-muted-foreground uppercase font-bold tracking-widest leading-relaxed">
               Years of<br />Experience building imaginations into reality
             </p>
