@@ -16,7 +16,7 @@ export const identityContent = {
 };
 
 export const aboutContent = {
-  bio: "I am a visual developer with a passion for creating beautiful and interactive web experiences. I specialize in front-end development and use modern technologies to bring my ideas to life.",
+  bio: "I am a full-stack & Web3 engineer who builds products end to end, from cross-chain payment flows and wallet integrations to the interfaces people use every day. I work in Next.js, Node.js and TypeScript, and I ship to production.",
 };
 
 export const contactContent = {

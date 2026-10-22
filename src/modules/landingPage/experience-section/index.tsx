@@ -4,13 +4,23 @@ import React, { useState, useEffect, useRef } from "react";
 import { ArrowUpRight, X } from "lucide-react";
 import { motion, useSpring, useMotionValue, AnimatePresence } from "framer-motion";
 
+// Whole months since the start month, so an ongoing role never shows a stale duration.
+function durationSince(year: number, month: number): string {
+  const now = new Date();
+  const months = (now.getFullYear() - year) * 12 + (now.getMonth() + 1 - month);
+  const y = Math.floor(months / 12);
+  const m = months % 12;
+  const part = (n: number, unit: string) => `${n} ${unit}${n === 1 ? "" : "S"}`;
+  return [y && part(y, "YEAR"), m && part(m, "MONTH")].filter(Boolean).join(", ");
+}
+
 const EXPERIENCES = [
   {
     startDate: "AUG - 2025",
     endDate: "PRESENT",
     role: "Full stack developer/Web3 developer",
     company: "Metaverse Ventures Pvt. Ltd. (Remote)",
-    duration: "8 MONTHS",
+    duration: durationSince(2025, 8),
     details: [
       "Leading development of high-fidelity metaverse ecosystems with real-time interactions.",
       "Architecting scalable Web3 infrastructure for decentralized asset management.",
